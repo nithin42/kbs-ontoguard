@@ -12,6 +12,17 @@
 \usepackage{algpseudocode}
 \usepackage{hyphenat}
 \usepackage{url}
+\usepackage{listings}
+
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10},
+    keywordstyle=\color{blue},
+    stringstyle=\color{teal},
+    commentstyle=\color{gray}
+}
 
 \hypersetup{
     colorlinks=true,
@@ -25,6 +36,7 @@
 
 \newtheorem{definition}{Definition}
 \newtheorem{theorem}{Theorem}
+\newtheorem{remark}{Remark}
 
 \journal{Knowledge-Based Systems}
 
@@ -58,7 +70,7 @@ Neuro-symbolic AI \sep Large Language Models \sep Constrained Decoding \sep Auto
 
 The integration of Large Language Models (LLMs) with external Application Programming Interfaces (APIs) and tool-calling execution engines marks a transition toward autonomous enterprise software agents \cite{qin2024toolllm, qwen2024qwen25}. In modern decision-support ecosystems, autonomous agents are granted live execution access to issue invoice credits, adjust customer shipping destinations, and execute relational database queries \cite{dubey2024llama, pan2024unifying}.
 
-However, deploying autonomous agents within mission-critical infrastructure creates severe security vulnerabilities \cite{li2024security, nist2024genairmf, owasp2025top10}. Most prominently, untrusted data ingested during execution—such as third-party vendor emails, customer dispute attachments, or web search results—frequently contains adversarial instructions designed to hijack the model's decision cycle via \textit{indirect prompt injection} (IPI) \cite{zhan2024injecagent, debenedetti2024agentdojo}. In these scenarios, the autonomous agent suffers from the classic \textit{Confused Deputy} vulnerability \cite{mavrogiannis2024confused}, leveraging its authenticated enterprise privileges to execute destructive actions unintended by the system operator \cite{ruan2024identifying, deng2024pentestgpt}.
+However, deploying autonomous agents within mission-critical infrastructure creates severe security vulnerabilities \cite{li2024security, nist2024genairmf, owasp2025top10}. Most prominently, untrusted data ingested during execution---such as third-party vendor emails, customer dispute attachments, or web search results---frequently contains adversarial instructions designed to hijack the model's decision cycle via \textit{indirect prompt injection} (IPI) \cite{zhan2024injecagent, debenedetti2024agentdojo}. In these scenarios, the autonomous agent suffers from the classic \textit{Confused Deputy} vulnerability \cite{mavrogiannis2024confused}, leveraging its authenticated enterprise privileges to execute destructive actions unintended by the system operator \cite{ruan2024identifying, deng2024pentestgpt}.
 
 To safeguard agentic systems, industry practitioners currently depend on two predominant defensive paradigms:
 \begin{enumerate}
@@ -72,6 +84,13 @@ To overcome these structural limitations, we present \textbf{Ontology-Constraine
 
 \section{Mathematical Formulation of O-CTD}
 \label{sec:math}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figure1_system_architecture.pdf}
+\caption{System architecture of Ontology-Constrained Token Decoding (O-CTD). Phase~I: Offline compilation maps the declarative enterprise RBAC ontology into localized Context-Free Grammars $\mathcal{G}_r$ and vocabulary DFAs $\mathcal{D}_r$. Phase~II: Online neuro-symbolic execution dynamically projects unconstrained LLM logits onto the admissible token mask $\mathcal{A}(q_{t-1})$, mathematically precluding out-of-privilege tool invocations and parameter violations.}
+\label{fig:architecture}
+\end{figure*}
 
 \subsection{Declarative Enterprise RBAC Ontology}
 
@@ -90,12 +109,22 @@ where:
 \end{itemize}
 \end{definition}
 
-Each active session role $r \in \mathcal{R}$ is mapped to an authorized tool subspace $\mathcal{T}_r \subseteq \mathcal{T}$ and a role-specific axiom subset $\Sigma_r \subseteq \Sigma$. An executed action is defined as a pair $a = \langle t, \theta \rangle$, where $t \in \mathcal{T}$ is the selected tool identifier and $\theta = \{p_i: v_i\}$ is the argument assignment dictionary. The formal authorization predicate $\Phi(a, r)$ evaluates as:
+Each active session role $r \in \mathcal{R}$ is mapped to an authorized tool subspace $\mathcal{T}_r \subseteq \mathcal{T}$ and a role-specific axiom subset $\Sigma_r \subseteq \Sigma$. 
+
+To establish formal verification boundaries, we partition the tool argument assignment dictionary $\theta$ into structured, bounded parameters and unbounded natural-language strings:
 \begin{equation}
-    \Phi(\langle t, \theta \rangle, r) \iff \left( t \in \mathcal{T}_r \right) \land \left( \forall \sigma \in \Sigma_r, \, \sigma(\theta) = \text{True} \right)
+    \theta = \langle \theta_{\text{bounded}}, \theta_{\text{free}} \rangle
+\end{equation}
+where $\theta_{\text{bounded}}$ encompasses categorical enumerations, booleans, and numeric parameters governed by formal security axioms $\Sigma_r$, while $\theta_{\text{free}}$ represents open-ended free-text fields (e.g., support ticket notes, user search queries). An executed action is defined as a pair $a = \langle t, \theta \rangle$. The global authorization predicate $\Phi(a, r)$ is formally decoupled as:
+\begin{equation}
+    \Phi(\langle t, \theta \rangle, r) \iff \Phi_{\text{struct}}(\langle t, \theta_{\text{bounded}} \rangle, r) \land \Phi_{\text{semantic}}(\theta_{\text{free}})
+\end{equation}
+where the structural and parametric authorization predicate $\Phi_{\text{struct}}$ evaluates as:
+\begin{equation}
+    \Phi_{\text{struct}}(\langle t, \theta_{\text{bounded}} \rangle, r) \iff \left( t \in \mathcal{T}_r \right) \land \left( \forall \sigma \in \Sigma_r, \, \sigma(\theta_{\text{bounded}}) = \text{True} \right)
 \end{equation}
 
-In enterprise decision-support settings, parametric axioms $\sigma \in \Sigma_r$ enforce strict bounds, including numerical disbursement ceilings ($\sigma_{\text{refund}}$), geographic domain restrictions ($\sigma_{\text{address}}$), and SQL table exclusion lists ($\sigma_{\text{sql}}$):
+In enterprise decision-support settings, parametric axioms $\sigma \in \Sigma_r$ enforce strict operational boundaries:
 \begin{align}
     \sigma_{\text{refund}}(\theta) &\iff \theta[\text{amount\_usd}] \le C_r \\
     \sigma_{\text{address}}(\theta) &\iff \theta[\text{is\_international}] = \text{False} \\
@@ -105,7 +134,7 @@ where $C_r$ is the maximum refund ceiling authorized for role $r$ ($C_{\text{Tie
 
 \subsection{Context-Free Grammar Compilation}
 
-To enforce $\Phi(a, r)$ during autoregressive inference, the compilation operator $\mathcal{M}$ maps the active role definition $r$ into a formal Context-Free Grammar $\mathcal{G}_r = \langle V_N, V_T, P, S \rangle$ \cite{zhang2024syncode, zhao2024xgrammar}:
+To enforce $\Phi_{\text{struct}}(\langle t, \theta_{\text{bounded}} \rangle, r)$ during autoregressive inference, the compilation operator $\mathcal{M}$ maps the active role definition $r$ into a formal Context-Free Grammar $\mathcal{G}_r = \langle V_N, V_T, P, S \rangle$ \cite{zhang2024syncode, zhao2024xgrammar}:
 \begin{equation}
     \mathcal{M}: r \mapsto \mathcal{G}_r
 \end{equation}
@@ -115,7 +144,18 @@ Under $\mathcal{G}_r$, the production rule for the action name is strictly restr
 \begin{equation}
     S_{\text{action}} \to \text{\texttt{"action\_name": }} \left( t_{r, 1} \mid t_{r, 2} \mid \dots \mid t_{r, |\mathcal{T}_r|} \right) \quad \forall t_{r, j} \in \mathcal{T}_r
 \end{equation}
-Numeric parameters subject to ceiling constraints $C_r$ are compiled into bounded sub-grammars that syntactically reject any token sequence representing a numeric value exceeding $C_r$ \cite{beurer2024guiding}.
+
+\subsection{BPE-Safe Numeric Sub-Grammar Formulation}
+\label{sec:numeric_ebnf}
+
+Enforcing continuous numeric bounds (e.g., $\theta[\text{amount\_usd}] \le C_r$) over Byte-Pair Encoded (BPE) sub-word tokenizers represents a non-trivial challenge, as tokens correspond to arbitrary byte sequences rather than structured decimal positions.
+
+To guarantee that no numeric token sequence representing a value exceeding $C_r$ can be sampled, O-CTD compiles parametric ceilings into bounded regular grammars. For a role ceiling $C_r = \$50.00$, the production rules in Extended Backus-Naur Form (EBNF) are:
+\begin{align}
+    \text{RefundAmount} &\to \text{IntegerPart} \,\, (\text{"."} \,\, [0\text{-}9] \,\, [0\text{-}9])? \\
+    \text{IntegerPart} &\to [0\text{-}9] \mid [1\text{-}4][0\text{-}9] \mid \text{"50"}
+\end{align}
+This regular language $\mathcal{L}_{\text{num}} = \{ x \in \mathbb{R}_{\ge 0} \mid x \le C_r \}$ is compiled into a Deterministic Finite Automaton $\mathcal{D}_{\text{num}}$. When intersecting $\mathcal{D}_{\text{num}}$ with the tokenizer vocabulary $\mathcal{V}$, any token whose concatenation with preceding prefix digits produces a numerical prefix $> C_r$ (e.g., token \texttt{"51"} or token \texttt{"100"}) contains no outgoing transition $\delta(q, v)$ and is assigned an infinite negative mask \cite{beurer2024guiding}.
 
 \subsection{Logit-Masking Projection Operator}
 
@@ -147,14 +187,14 @@ Algorithm~\ref{alg:octd} provides the operational execution loop for O-CTD.
 \label{alg:octd}
 \begin{algorithmic}[1]
 \Require Prompt sequence $\mathbf{p}$, Active role $r \in \mathcal{R}$, Security ontology $\mathcal{O}$, Language model $\mathcal{M}_{\theta}$, Vocabulary $\mathcal{V}$
-\Ensure Valid, authorized tool call $a = \langle t, \theta \rangle$ satisfying $\Phi(a, r) = \text{True}$
+\Ensure Valid, authorized tool call $a = \langle t, \theta \rangle$ satisfying $\Phi_{\text{struct}}(\langle t, \theta_{\text{bounded}} \rangle, r) = \text{True}$
 \State $\mathcal{G}_r \gets \text{CompileGrammar}(r, \mathcal{O})$ \Comment{Compile role sub-grammar}
 \State $\mathcal{D}_r \gets \text{ConstructDFA}(\mathcal{G}_r, \mathcal{V})$ \Comment{Build vocabulary DFA}
 \State $q_0 \gets \text{InitialState}(\mathcal{D}_r)$, $x_{<1} \gets \mathbf{p}$, $t \gets 1$
 \While{$x_{t-1} \neq \text{\texttt{<EOS>}}$ and $t \le K_{\text{max}}$}
     \State $\mathbf{z}_t \gets \mathcal{M}_{\theta}(x_{<t})$ \Comment{Forward pass unconstrained logits}
     \State $\mathcal{A}(q_{t-1}) \gets \{ v \in \mathcal{V} \mid \delta(q_{t-1}, v) \neq \emptyset \}$ \Comment{Admissible token mask}
-    \State $\tilde{\mathbf{z}}_t \gets \mathcal{P}_{\mathcal{G}_r}(\mathbf{z}_t)$ via Eq.~(9)
+    \State $\tilde{\mathbf{z}}_t \gets \mathcal{P}_{\mathcal{G}_r}(\mathbf{z}_t)$ via Eq.~(14)
     \State $x_t \sim \text{Softmax}(\tilde{\mathbf{z}}_t)$ \Comment{Sample valid token}
     \State $q_t \gets \delta(q_{t-1}, x_t)$ \Comment{Advance DFA state}
     \State $x_{<t+1} \gets [x_{<t}, x_t]$, $t \gets t + 1$
@@ -163,16 +203,22 @@ Algorithm~\ref{alg:octd} provides the operational execution loop for O-CTD.
 \end{algorithmic}
 \end{algorithm}
 
-\begin{theorem}[Soundness of Axiomatic Enforcement]
-Let $\mathbf{x} = [x_1, \dots, x_K]$ be a generation sequence completed under O-CTD. Then the extracted tool invocation $a = \text{Parse}(\mathbf{x})$ satisfies:
+\subsection{Theoretical Soundness \& Decidability Boundaries}
+
+\begin{theorem}[Soundness of Structural \& Parametric Enforcement]
+Let $\mathbf{x} = [x_1, \dots, x_K]$ be a generation sequence completed under O-CTD. Then the extracted tool invocation $a = \langle t, \theta \rangle = \text{Parse}(\mathbf{x})$ satisfies:
 \begin{equation}
-    P\left( \Phi(a, r) = \text{False} \right) = 0
+    P\left( \Phi_{\text{struct}}(\langle t, \theta_{\text{bounded}} \rangle, r) = \text{False} \right) = 0
 \end{equation}
-for all structural and parametric axioms encoded within $\mathcal{G}_r$.
+for all structural tool signatures and bounded parametric axioms encoded within $\mathcal{G}_r$.
 \end{theorem}
 \begin{proof}
-By construction, generating an unauthorized tool $t \notin \mathcal{T}_r$ or an out-of-bounds numeric token requires traversing an invalid state transition $\delta(q_t, v) = \emptyset$. Since $\mathcal{P}_{\mathcal{G}_r}(\mathbf{z}_t)_v = -\infty$, the sampling probability $P(x_t = v) = 0$. By induction over generation steps $1 \le t \le K$, the probability of emitting a non-conforming sequence is identically zero.
+By construction, generating an unauthorized tool $t \notin \mathcal{T}_r$ or a numeric token sequence violating $\theta_{\text{bounded}} \le C_r$ requires traversing an invalid state transition $\delta(q_t, v) = \emptyset$ in $\mathcal{D}_r$. By Eq.~(14), $\mathcal{P}_{\mathcal{G}_r}(\mathbf{z}_t)_v = -\infty$, which yields $P(x_t = v) = 0$ upon Softmax normalization. By induction over decoding steps $1 \le t \le K$, the probability of emitting any non-conforming token sequence is identically zero.
 \end{proof}
+
+\begin{remark}[Decidability Boundary and Semantic Orthogonality]
+Theorem~1 guarantees soundness strictly over the structural and bounded parametric domain $\Phi_{\text{struct}}$. Conversely, semantic validation over unbounded natural-language strings $\theta_{\text{free}}$ (e.g., ensuring a customer support note does not leak confidential context) is undecidable via regular or context-free grammars alone. This formal theoretical distinction directly explains the empirical residual ASR observed in Section~\ref{sec:residual_asr}.
+\end{remark}
 
 \subsection{Complexity and Scalability Analysis}
 
@@ -260,7 +306,7 @@ M2 (Post-Hoc Classifier) & 100.0\% & 100.0\% & 0.0\%   & 1120.3 ms & 1618.8 ms \
 
 \textbf{1. Vulnerability of In-Context Guardrails:} In-context prompt defense (M1) proved ineffective against targeted attacks, suffering an \textbf{80.0\% ASR} and a \textbf{90.0\% IVR}. When presented with adversarial framing, the LLM consistently prioritized user prompt instructions over system-level constraints, demonstrating that soft in-context prompts cannot guarantee security under adversarial distribution shifts \cite{wei2024jailbroken, wu2024empirical}.
 
-\textbf{2. Syntactic Brittleness in Unconstrained LLMs:} Baselines M0, M1, and M2 exhibited \textbf{0.0\% BTC} on benign business queries. Log analysis revealed that this failure was driven by \textit{syntactic non-conformance}. Unconstrained Qwen-2.5 generated natural language conversational preambles (e.g., \textit{``Certainly! I will process that request:''}) or emitted non-standard JSON keys, causing automated tool dispatchers to reject the call. Conversely, M* achieved \textbf{100.0\% BTC}, demonstrating that neuro-symbolic grammar constraints enforce strict syntactic determinism essential for production agent utility.
+\textbf{2. Syntactic Brittleness in Unconstrained LLMs:} Baselines M0, M1, and M2 exhibited \textbf{0.0\% BTC} on benign business queries. A rigorous evaluation requires examining this metric candidly. Log analysis revealed that this failure was driven by \textit{syntactic non-conformance}: unconstrained Qwen-2.5 generated natural language conversational preambles (e.g., \textit{``Certainly! I will process that request:''}) or emitted non-standard JSON keys, causing automated tool dispatchers to reject the call. Conversely, M* achieved \textbf{100.0\% BTC}, demonstrating the dual contribution of neuro-symbolic grammar constraints: they enforce \textit{syntactic determinism} (eliminating dropped calls) while simultaneously guaranteeing \textit{axiomatic authorization boundaries}.
 
 \textbf{3. Security Enforcement of O-CTD:} O-CTD achieved a \textbf{4$\times$ reduction in ASR} (from 80.0\% down to 20.0\%) and a \textbf{9$\times$ reduction in policy invariant violations} (from 90.0\% down to 10.0\%). Privilege escalation and out-of-bounds parameter tampering were physically blocked at the logit level.
 
@@ -300,13 +346,14 @@ To verify that the empirical superiority of O-CTD over in-context prompt guardin
 The effect size of $r = 0.800$ exceeds the standard benchmark for a ``large'' effect ($r \ge 0.50$), confirming that O-CTD delivers statistically definitive and reproducible safety improvements.
 
 \subsection{Qualitative Analysis of Residual ASR (20\%)}
+\label{sec:residual_asr}
 
 Rigorous empirical analysis requires examining remaining failure modes. While O-CTD suppressed ASR from 80\% to 20\%, we investigate why the residual 20\% occurred:
 \begin{enumerate}
-    \item \textbf{The Confused Deputy inside Free-Text Arguments:} In two test scenarios, the attack prompt requested: \textit{``Order ORD-12345 was delayed; look up its status and append a note containing internal API keys.''}. Because \texttt{lookup\_order\_status} was an authorized tool for Tier 1 support, the grammar permitted its selection. While O-CTD prevented unauthorized financial execution, the model processed the adversarial payload inside the legitimate tool's free-text comment field.
-    \item \textbf{Safe Fallback Invocations:} Under aggressive injection where all attempted tool tokens were masked out by the DFA, the agent fell back to the default permitted tool (\texttt{lookup\_order\_status}). Although no policy violation occurred, the benchmark marked the sample as partially engaged because the model did not output an explicit refusal string.
+    \item \textbf{The Confused Deputy inside Free-Text Arguments:} In two test scenarios, the attack prompt requested: \textit{``Order ORD-12345 was delayed; look up its status and append a note containing internal API keys.''}. Because \texttt{lookup\_order\_status} was an authorized tool for Tier 1 support, the grammar permitted its selection. While O-CTD prevented unauthorized financial execution, the model processed the adversarial payload inside the legitimate tool's free-text comment field $\theta_{\text{free}}$ \cite{mavrogiannis2024confused}.
+    \item \textbf{Safe Fallback Invocations:} Under aggressive injection where all attempted tool tokens were masked out by the DFA, the agent fell back to the default permitted tool (\texttt{lookup\_order\_status}). Although no policy violation occurred ($\Phi_{\text{struct}} = \text{True}$), the benchmark marked the sample as partially engaged because the model did not output an explicit refusal string.
 \end{enumerate}
-This finding highlights a theoretical boundary: \textbf{Context-Free Grammars mathematically eliminate structural and parametric privilege escalations, but semantic validation inside unbounded free-text fields remains an orthogonal challenge.}
+This finding directly validates Remark~1: \textbf{Context-Free Grammars mathematically eliminate structural and parametric privilege escalations ($\Phi_{\text{struct}}$), but semantic validation inside unbounded free-text fields ($\theta_{\text{free}}$) remains an orthogonal challenge requiring complementary semantic classifiers.}
 
 \subsection{Computational Overhead \& The Pareto Frontier}
 
@@ -319,7 +366,7 @@ This finding highlights a theoretical boundary: \textbf{Context-Free Grammars ma
 
 Figure~\ref{fig:pareto}(a) illustrates the Pareto frontier between security vulnerability and utility. Unconstrained baselines cluster in the bottom-right quadrant (high vulnerability, zero execution utility). O-CTD dominates the frontier, occupying the upper-left quadrant (100\% utility, 20\% ASR).
 
-Figure~\ref{fig:pareto}(b) documents the corresponding computational cost. M* introduces a mean latency of \textbf{3116.0 ms} compared to \textbf{1157.0 ms} for prompt guarding. This $\sim$2.7$\times$ latency overhead stems from the runtime intersection between the tokenizer vocabulary ($|\mathcal{V}| \approx 152,000$) and the DFA transition table at each generation step. In high-stakes enterprise workflows (e.g., approving customer disbursements, modifying databases), an added 2-second overhead represents an acceptable operational trade-off in exchange for deterministic security guarantees.
+Figure~\ref{fig:pareto}(b) documents the corresponding computational cost. M* introduces a mean latency of \textbf{3116.0 ms} compared to \textbf{1157.0 ms} for prompt guarding. This $\sim$2.7$\times$ latency overhead stems from the runtime intersection between the tokenizer vocabulary ($|\mathcal{V}| \approx 152,000$) and the DFA transition table at each generation step \cite{zhang2024syncode, zhao2024xgrammar}. In high-stakes enterprise workflows (e.g., approving customer disbursements, modifying databases), an added 2-second overhead represents an acceptable operational trade-off in exchange for deterministic security guarantees.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -328,6 +375,30 @@ In this paper, we introduced \textbf{Ontology-Constrained Token Decoding (O-CTD)
 
 \section*{Data and Code Availability}
 The full experimental benchmark, declarative ontology specifications, evaluation suites, and PyTorch/Outlines implementation are openly available in the project repository: \url{https://github.com/nithin42/kbs-ontoguard}.
+
+\appendix
+\section{Declarative Enterprise RBAC Ontology Specifications}
+\label{sec:appendix_ontology}
+
+Listing~\ref{lst:ontology_tier1} provides the formal Pydantic schema declaration compiling the \texttt{CustomerSupportTier1} role sub-grammar $\mathcal{G}_{\text{Tier1}}$:
+
+\begin{lstlisting}[language=Python, caption={Declarative Schema for CustomerSupportTier1 Role Sub-Grammar.}, label={lst:ontology_tier1}]
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class LookupOrderStatus(BaseModel):
+    action_name: Literal["lookup_order_status"]
+    order_id: str = Field(pattern=r"^ORD-[0-9]{5}$")
+
+class ProcessRefundTier1(BaseModel):
+    action_name: Literal["process_refund"]
+    order_id: str = Field(pattern=r"^ORD-[0-9]{5}$")
+    amount_usd: float = Field(ge=0.01, le=50.00) # Axiom: C_r <= $50.00
+    reason: str = Field(max_length=200)
+
+class CustomerSupportTier1Action(BaseModel):
+    action: LookupOrderStatus | ProcessRefundTier1
+\end{lstlisting}
 
 \bibliographystyle{elsarticle-num}
 \bibliography{references}

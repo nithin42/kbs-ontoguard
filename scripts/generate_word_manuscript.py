@@ -5,12 +5,15 @@ Generates an authentic, Q1-standard research manuscript containing:
 - Formatted frontmatter (Title, Authors, Affiliations, Corresponding author, Abstract, Keywords)
 - Research Highlights (5 bullets per Elsevier guidelines)
 - Numbered sections (1 to 5) fully synchronized with manuscript.tex
-- Mathematical Definitions (Definition 1, 2, 3), Theorem 1 with formal inductive proof
+- Mathematical Definitions (Definition 1, 2, 3), Theorem 1 with formal inductive proof, Remark 1 (Decidability Boundary)
+- Embedded Figure 1: System Architecture of O-CTD (Phase I Offline Compilation + Phase II Online Logit-Masking Loop)
 - Algorithm 1: Ontology-Constrained Token Decoding (O-CTD) styled with pseudocode block
+- Section 2.3: BPE-Safe Numeric Sub-Grammar Formulation in EBNF
 - Embedded Table 1 (Main Comparative Benchmark Results) and Table 2 (Threat Category Ablation)
-- Embedded Figure 1 (Pareto Frontier and Latency Overhead) with professional caption
+- Embedded Figure 2: Pareto Frontier and Latency Overhead with professional caption
 - Critical discussion of baseline syntactic formatting sensitivity vs. axiomatic authorization
 - Statistical significance (Wilcoxon signed-rank test W=0.0, p=3.74e-19, r=0.800)
+- Appendix A: Declarative Enterprise RBAC Ontology Specifications (Pydantic / JSON-LD schemas)
 - 28 Verified 2024-2026 Academic Citations formatted in Elsevier numerical style
 """
 
@@ -148,7 +151,7 @@ def build_word_manuscript():
 
         algo_lines = [
             "Input:  Prompt sequence p, Active role r in R, Security ontology O = <R, T, Sigma>, Foundation LM M_theta, Vocabulary V",
-            "Output: Valid, authorized tool call a = <t, theta> satisfying Phi(a, r) = True",
+            "Ensure: Valid, authorized tool call a = <t, theta> satisfying Phi_struct(<t, theta_bounded>, r) = True",
             "---------------------------------------------------------------------------------------------------------------------",
             "1:  G_r <- CompileGrammar(r, O)              // Compile role-specific Context-Free Grammar",
             "2:  D_r <- ConstructDFA(G_r, V)               // Build vocabulary Deterministic Finite Automaton",
@@ -156,7 +159,7 @@ def build_word_manuscript():
             "4:  while x_{t-1} != <EOS> and t <= K_max do",
             "5:      z_t <- M_theta(x_{<t})                // Forward pass to compute unconstrained logits",
             "6:      A(q_{t-1}) <- { v in V | delta(q_{t-1}, v) != empty }  // Compute admissible next-token mask",
-            "7:      tilde{z}_{t, v} <- z_{t, v}  if v in A(q_{t-1})  else  -infinity  // Logit masking projection (Eq. 9)",
+            "7:      tilde{z}_{t, v} <- z_{t, v}  if v in A(q_{t-1})  else  -infinity  // Logit masking projection (Eq. 14)",
             "8:      x_t ~ Softmax(tilde{z}_t)             // Sample next token from normalized admissible distribution",
             "9:      q_t <- delta(q_{t-1}, x_t)            // Advance DFA transition state",
             "10:     x_{<t+1} <- [x_{<t}, x_t],  t <- t + 1",
@@ -182,7 +185,7 @@ def build_word_manuscript():
     # -------------------------------------------------------------
     p_journal = doc.add_paragraph()
     p_journal.paragraph_format.space_after = Pt(8)
-    r_j = p_journal.add_run("Target: Knowledge-Based Systems (Elsevier) — Short Communication")
+    r_j = p_journal.add_run("Target: Knowledge-Based Systems (Elsevier) — Regular Research Article")
     r_j.font.name = 'Times New Roman'
     r_j.font.size = Pt(9.5)
     r_j.font.italic = True
@@ -262,11 +265,11 @@ def build_word_manuscript():
     r_kw = p_kw.add_run("Neuro-symbolic AI; Large Language Models; Constrained Decoding; Autonomous Agents; Role-Based Access Control; Prompt Injection Defense")
     r_kw.font.size = Pt(10)
 
-    # Research Highlights (Elsevier standard requirement)
+    # Research Highlights
     add_heading_2("Highlights")
     highlights = [
         "A formal neuro-symbolic framework compiling enterprise RBAC ontologies into runtime Context-Free Grammars (CFGs).",
-        "Deterministic logit masking mathematically guarantees that out-of-privilege tools and parameters cannot be emitted (P = 0).",
+        "Deterministic logit masking mathematically guarantees that out-of-privilege tools and parameters cannot be emitted (P(Phi_struct = False) = 0).",
         "Empirical evaluation on NVIDIA RTX 4090: ASR reduced from 80.0% to 20.0%, and Invariant Violation Rate from 90.0% to 10.0%.",
         "Achieves 100.0% Benign Task Completion by eliminating the conversational preambles and JSON syntax errors common in unconstrained LLMs.",
         "Statistically verified via paired Wilcoxon signed-rank testing (W = 0.0, p = 3.74 × 10⁻¹⁹, rank-biserial effect size r = 0.800)."
@@ -318,6 +321,25 @@ def build_word_manuscript():
     # SECTION 2: MATHEMATICAL FORMULATION
     # -------------------------------------------------------------
     add_heading_1("2. Mathematical Formulation of O-CTD")
+
+    # Insert Figure 1: System Architecture
+    arch_png_path = "paper/figure1_system_architecture.png"
+    if os.path.exists(arch_png_path):
+        p_arch = doc.add_paragraph()
+        p_arch.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        doc.add_picture(arch_png_path, width=Inches(6.4))
+        p_arch_cap = doc.add_paragraph()
+        p_arch_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_ac = p_arch_cap.add_run(
+            "Figure 1: System architecture of Ontology-Constrained Token Decoding (O-CTD). "
+            "Phase I: Offline compilation maps the declarative enterprise RBAC ontology into localized Context-Free Grammars (G_r) and vocabulary DFAs (D_r). "
+            "Phase II: Online neuro-symbolic execution dynamically projects unconstrained LLM logits onto the admissible token mask A(q_{t-1}), "
+            "mathematically precluding out-of-privilege tool invocations and parameter violations."
+        )
+        r_ac.font.size = Pt(9.5)
+        r_ac.font.italic = True
+        p_arch_cap.paragraph_format.space_after = Pt(10)
+
     doc.add_paragraph(
         "We formalize enterprise operational policies as an axiomatic security ontology defined over roles, tools, and parametric bounds [18, 26]."
     )
@@ -334,74 +356,80 @@ def build_word_manuscript():
 
     doc.add_paragraph(
         "Each active session role r in R is mapped to an authorized tool subspace T_r subseteq T and a role-specific axiom subset Sigma_r subseteq Sigma. "
-        "An executed action is defined as a pair a = <t, theta>, where t in T is the selected tool identifier and theta = {p_i: v_i} is the argument assignment dictionary. "
-        "The formal authorization predicate Phi(a, r) evaluates as:"
+        "To establish formal verification boundaries, we partition the tool argument assignment dictionary theta into structured, bounded parameters and unbounded natural-language strings:\n"
+        "    theta = < theta_bounded, theta_free >                                     (2)\n"
+        "where theta_bounded encompasses categorical enumerations, booleans, and numeric parameters governed by formal security axioms Sigma_r, "
+        "while theta_free represents open-ended free-text fields (e.g., support ticket notes, user search queries). An executed action is defined as a pair a = <t, theta>. "
+        "The global authorization predicate Phi(a, r) is formally decoupled as:\n"
+        "    Phi(<t, theta>, r) <=> Phi_struct(<t, theta_bounded>, r) and Phi_semantic(theta_free)        (3)\n"
+        "where the structural and parametric authorization predicate Phi_struct evaluates as:\n"
+        "    Phi_struct(<t, theta_bounded>, r) <=> (t in T_r) and (forall sigma in Sigma_r, sigma(theta_bounded) = True)  (4)"
     )
-
-    p_eq1 = doc.add_paragraph()
-    p_eq1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r_e1 = p_eq1.add_run("Phi(<t, theta>, r) <=> (t in T_r) and (forall sigma in Sigma_r, sigma(theta) = True)          (1)")
-    r_e1.font.name = 'Courier New'
-    r_e1.font.bold = True
-    r_e1.font.size = Pt(10)
 
     doc.add_paragraph(
-        "In enterprise decision-support settings, parametric axioms sigma in Sigma_r enforce strict bounds, including numerical disbursement ceilings (sigma_refund), "
-        "geographic domain restrictions (sigma_address), and SQL command exclusion lists (sigma_sql):"
-    )
-
-    p_eq2 = doc.add_paragraph()
-    p_eq2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r_e2 = p_eq2.add_run(
-        "sigma_refund(theta)  <=>  theta['amount_usd'] <= C_r                     (2)\n"
-        "sigma_address(theta) <=>  theta['is_international'] = False             (3)\n"
-        "sigma_sql(theta)     <=>  theta['query'] not in L_prohibited              (4)"
-    )
-    r_e2.font.name = 'Courier New'
-    r_e2.font.size = Pt(9.5)
-
-    doc.add_paragraph(
+        "In enterprise decision-support settings, parametric axioms sigma in Sigma_r enforce strict operational boundaries:\n"
+        "    sigma_refund(theta)  <=>  theta['amount_usd'] <= C_r                     (5)\n"
+        "    sigma_address(theta) <=>  theta['is_international'] = False             (6)\n"
+        "    sigma_sql(theta)     <=>  theta['query'] not in L_prohibited              (7)\n"
         "where C_r is the maximum refund ceiling authorized for role r (C_Tier1 = $50.00, C_Billing = $1,000.00), and L_prohibited represents prohibited database modification commands."
     )
 
     add_heading_2("2.1 Context-Free Grammar Compilation")
     doc.add_paragraph(
-        "To enforce Phi(a, r) during autoregressive inference, the compilation operator M maps the active role definition r into a formal Context-Free Grammar G_r = <V_N, V_T, P, S> [21, 22]:\n"
-        "    M: r |-> G_r                                                            (5)\n"
-        "where V_T is the terminal alphabet (the model's character encoding), V_N is the set of non-terminals, P is the set of production rules, and S is the start symbol."
-    )
-    doc.add_paragraph(
+        "To enforce Phi_struct(<t, theta_bounded>, r) during autoregressive inference, the compilation operator M maps the active role definition r into a formal Context-Free Grammar G_r = <V_N, V_T, P, S> [21, 22]:\n"
+        "    M: r |-> G_r                                                            (8)\n"
+        "where V_T is the terminal alphabet (the model's character encoding), V_N is the set of non-terminals, P is the set of production rules, and S is the start symbol.\n\n"
         "Under G_r, the production rule for the action name is strictly restricted to the literal disjunction of authorized tools:\n"
-        "    S_action -> 'action_name': ( t_{r, 1} | t_{r, 2} | ... | t_{r, |T_r|} )   forall t_{r, j} in T_r       (6)\n"
-        "Numeric parameters subject to ceiling constraints C_r are compiled into bounded sub-grammars that syntactically reject any token sequence representing a numeric value exceeding C_r [23]."
+        "    S_action -> 'action_name': ( t_{r, 1} | t_{r, 2} | ... | t_{r, |T_r|} )   forall t_{r, j} in T_r       (9)"
     )
 
-    add_heading_2("2.2 Logit-Masking Projection Operator")
+    add_heading_2("2.2 BPE-Safe Numeric Sub-Grammar Formulation")
+    doc.add_paragraph(
+        "Enforcing continuous numeric bounds (e.g., theta['amount_usd'] <= C_r) over Byte-Pair Encoded (BPE) sub-word tokenizers represents a non-trivial challenge, "
+        "as tokens correspond to arbitrary byte sequences rather than structured decimal positions. To guarantee that no numeric token sequence representing a value "
+        "exceeding C_r can be sampled, O-CTD compiles parametric ceilings into bounded regular grammars. For a role ceiling C_r = $50.00, the production rules in "
+        "Extended Backus-Naur Form (EBNF) are:\n\n"
+        "    RefundAmount ::= IntegerPart ('.' [0-9] [0-9])?                         (10)\n"
+        "    IntegerPart  ::= [0-9] | [1-4][0-9] | '50'                              (11)\n\n"
+        "This regular language L_num = { x in R_{>=0} | x <= C_r } is compiled into a Deterministic Finite Automaton D_num. When intersecting D_num with the tokenizer "
+        "vocabulary V, any token whose concatenation with preceding prefix digits produces a numerical prefix > C_r (e.g., token '51' or token '100') contains no outgoing "
+        "transition delta(q, v) and is assigned an infinite negative mask [23]."
+    )
+
+    add_heading_2("2.3 Logit-Masking Projection Operator")
     doc.add_paragraph(
         "Let V denote the model vocabulary with size |V|, and let x_{<t} = [x_1, ..., x_{t-1}] represent the sequence of generated tokens up to decoding step t. "
         "At step t, the base model outputs unconstrained logits z_t in R^{|V|}.\n\n"
         "The grammar G_r is compiled into a Deterministic Finite Automaton (DFA) D_r = <Q, V, delta, q_0, F> over the vocabulary [22, 25]. "
         "Let q_t in Q denote the active DFA state after consuming x_{<t}. The set of admissible next tokens A(q_t) subseteq V is formally defined as:\n"
-        "    A(q_t) = { v in V | exists q' in Q, delta(q_t, v) = q' }                   (7)\n\n"
+        "    A(q_t) = { v in V | exists q' in Q, delta(q_t, v) = q' }                   (12)\n\n"
         "The neuro-symbolic projection operator P_{G_r}: R^{|V|} -> R^{|V|} masks the logit distribution:\n"
-        "    P_{G_r}(z_t)_v = z_{t, v}  if v in A(q_t),  else -infinity                  (8)\n\n"
+        "    P_{G_r}(z_t)_v = z_{t, v}  if v in A(q_t),  else -infinity                  (13)\n\n"
         "The next token is sampled from the normalized masked distribution:\n"
-        "    x_t ~ Softmax( P_{G_r}(z_t) )                                            (9)"
+        "    x_t ~ Softmax( P_{G_r}(z_t) )                                            (14)"
     )
 
     # Insert Algorithm 1
     add_algorithm_box()
 
+    add_heading_2("2.4 Theoretical Soundness & Decidability Boundaries")
     add_callout_box(
-        "Theorem 1 (Soundness of Axiomatic Enforcement)",
-        "Let x = [x_1, ..., x_K] be a generation sequence completed under O-CTD. Then the extracted tool invocation a = Parse(x) satisfies:\n"
-        "    P( Phi(a, r) = False ) = 0\n"
-        "for all structural and parametric axioms encoded within G_r.\n\n"
-        "Proof. By construction, generating an unauthorized tool t not in T_r or an out-of-bounds numeric token requires traversing an invalid state transition delta(q_t, v) = empty. "
-        "Since P_{G_r}(z_t)_v = -infinity, the sampling probability P(x_t = v) = 0. By mathematical induction over generation steps 1 <= t <= K, the probability of emitting any non-conforming sequence is identically zero. Q.E.D."
+        "Theorem 1 (Soundness of Structural & Parametric Enforcement)",
+        "Let x = [x_1, ..., x_K] be a generation sequence completed under O-CTD. Then the extracted tool invocation a = <t, theta> = Parse(x) satisfies:\n"
+        "    P( Phi_struct(<t, theta_bounded>, r) = False ) = 0                       (15)\n"
+        "for all structural tool signatures and bounded parametric axioms encoded within G_r.\n\n"
+        "Proof. By construction, generating an unauthorized tool t not in T_r or a numeric token sequence violating theta_bounded <= C_r requires traversing an invalid "
+        "state transition delta(q_t, v) = empty in D_r. By Eq. (13), P_{G_r}(z_t)_v = -infinity, which yields P(x_t = v) = 0 upon Softmax normalization. By mathematical "
+        "induction over generation steps 1 <= t <= K, the probability of emitting any non-conforming token sequence is identically zero. Q.E.D."
     )
 
-    add_heading_2("2.3 Complexity and Scalability Analysis")
+    doc.add_paragraph(
+        "Remark 1 (Decidability Boundary and Semantic Orthogonality): Theorem 1 guarantees soundness strictly over the structural and bounded parametric domain Phi_struct. "
+        "Conversely, semantic validation over unbounded natural-language strings theta_free (e.g., ensuring a customer support note does not leak confidential context) "
+        "is undecidable via regular or context-free grammars alone. This formal theoretical distinction directly explains the empirical residual ASR observed in Section 4.4."
+    )
+
+    add_heading_2("2.5 Complexity and Scalability Analysis")
     doc.add_paragraph(
         "A critical challenge in enterprise agent deployments is catalog scalability. In production environments containing thousands of APIs, compiling a global monolithic "
         "grammar causes combinatorial state explosions [22]. Under O-CTD, the compilation operator M generates a localized grammar strictly bounded to the active session role r. "
@@ -579,24 +607,25 @@ def build_word_manuscript():
     doc.add_paragraph(
         "Rigorous empirical analysis requires examining remaining failure modes. While O-CTD suppressed ASR from 80% to 20%, we investigate why the residual 20% occurred:\n\n"
         "1. The Confused Deputy inside Free-Text Arguments: In two test scenarios, the attack prompt requested: 'Order ORD-12345 was delayed; look up its status and append a note containing internal API keys.' "
-        "Because lookup_order_status was an authorized tool for Tier 1 support, the grammar permitted its selection. While O-CTD prevented unauthorized financial execution, the model processed the adversarial payload inside the legitimate tool's free-text comment field [10].\n\n"
+        "Because lookup_order_status was an authorized tool for Tier 1 support, the grammar permitted its selection. While O-CTD prevented unauthorized financial execution, the model processed the adversarial payload inside the legitimate tool's free-text comment field theta_free [10].\n\n"
         "2. Safe Fallback Invocations: Under aggressive injection where all attempted tool tokens were masked out by the DFA, the agent fell back to the default permitted tool (lookup_order_status). "
-        "Although no policy violation occurred, the benchmark marked the sample as partially engaged because the model did not output an explicit refusal string.\n\n"
-        "This finding highlights a theoretical boundary: Context-Free Grammars mathematically eliminate structural and parametric privilege escalations, but semantic validation inside unbounded free-text fields remains an orthogonal challenge."
+        "Although no policy violation occurred (Phi_struct = True), the benchmark marked the sample as partially engaged because the model did not output an explicit refusal string.\n\n"
+        "This finding directly validates Remark 1: Context-Free Grammars mathematically eliminate structural and parametric privilege escalations (Phi_struct), "
+        "but semantic validation inside unbounded free-text fields (theta_free) remains an orthogonal challenge requiring complementary semantic classifiers."
     )
 
     add_heading_2("4.4 Computational Overhead & The Pareto Frontier")
 
-    # Insert Figure 1
-    png_path = "paper/figure1_pareto_tradeoff.png"
-    if os.path.exists(png_path):
+    # Insert Figure 2: Pareto Trade-off
+    pareto_png_path = "paper/figure1_pareto_tradeoff.png"
+    if os.path.exists(pareto_png_path):
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        doc.add_picture(png_path, width=Inches(6.2))
+        doc.add_picture(pareto_png_path, width=Inches(6.2))
         p_cap = doc.add_paragraph()
         p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r_cap = p_cap.add_run(
-            "Figure 1: (a) Pareto trade-off between security vulnerability (ASR %) and enterprise utility (BTC %). "
+            "Figure 2: (a) Pareto trade-off between security vulnerability (ASR %) and enterprise utility (BTC %). "
             "O-CTD establishes a dominant position in the optimal top-left quadrant. (b) Computational latency overhead per invocation across architectures on NVIDIA RTX 4090."
         )
         r_cap.font.size = Pt(9.5)
@@ -604,9 +633,9 @@ def build_word_manuscript():
         p_cap.paragraph_format.space_after = Pt(10)
 
     doc.add_paragraph(
-        "Figure 1(a) illustrates the Pareto frontier between security vulnerability and utility. Unconstrained baselines cluster in the bottom-right quadrant "
+        "Figure 2(a) illustrates the Pareto frontier between security vulnerability and utility. Unconstrained baselines cluster in the bottom-right quadrant "
         "(high vulnerability, zero execution utility). O-CTD dominates the frontier, occupying the upper-left quadrant (100% utility, 20% ASR).\n\n"
-        "Figure 1(b) documents the corresponding computational cost. M* introduces a mean latency of 3116.0 ms compared to 1157.0 ms for prompt guarding. "
+        "Figure 2(b) documents the corresponding computational cost. M* introduces a mean latency of 3116.0 ms compared to 1157.0 ms for prompt guarding. "
         "This ~2.7x latency overhead stems from the runtime intersection between the tokenizer vocabulary (|V| ~ 152,000) and the DFA transition table at each generation step [21, 22]. "
         "In high-stakes enterprise workflows (e.g., approving customer disbursements, modifying databases), an added 2-second overhead represents an acceptable operational trade-off in exchange for deterministic security guarantees."
     )
@@ -618,7 +647,7 @@ def build_word_manuscript():
     doc.add_paragraph(
         "In this paper, we introduced Ontology-Constrained Token Decoding (O-CTD), a neuro-symbolic framework that compiles declarative enterprise RBAC ontologies "
         "into runtime Context-Free Grammars for autonomous LLM agents. By enforcing deterministic logit masking during autoregressive generation, O-CTD mathematically "
-        "eliminates unauthorized tool privilege escalations and parametric boundary tampering. On a 100-sample enterprise benchmark using Qwen2.5-7B-Instruct, "
+        "eliminates unauthorized tool privilege escalations and parametric boundary tampering (P(Phi_struct = False) = 0). On a 100-sample enterprise benchmark using Qwen2.5-7B-Instruct, "
         "O-CTD reduced Attack Success Rates from 80% to 20%, decreased policy invariant violations from 90% to 10%, and achieved 100% task utility with strong "
         "statistical significance (p = 3.74 × 10⁻¹⁹, r = 0.800). Future research will explore compiling contextual semantic constraints into attribute grammars "
         "to address residual free-text injection vectors."
@@ -629,6 +658,35 @@ def build_word_manuscript():
         "The full experimental benchmark, declarative ontology specifications, evaluation suites, and PyTorch/Outlines implementation are openly available "
         "in the project repository: https://github.com/nithin42/kbs-ontoguard."
     )
+
+    # -------------------------------------------------------------
+    # APPENDIX A: DECLARATIVE ENTERPRISE RBAC SCHEMAS
+    # -------------------------------------------------------------
+    add_heading_1("Appendix A. Declarative Enterprise RBAC Ontology Specifications")
+    doc.add_paragraph(
+        "The following declarative Pydantic schemas specify the active session role sub-grammars compiled by O-CTD:"
+    )
+
+    p_code = doc.add_paragraph()
+    set_cell_shading_p = p_code.paragraph_format
+    set_cell_shading_p.left_indent = Inches(0.2)
+    r_code = p_code.add_run(
+        "from pydantic import BaseModel, Field\n"
+        "from typing import Literal\n\n"
+        "class LookupOrderStatus(BaseModel):\n"
+        "    action_name: Literal['lookup_order_status']\n"
+        "    order_id: str = Field(pattern=r'^ORD-[0-9]{5}$')\n\n"
+        "class ProcessRefundTier1(BaseModel):\n"
+        "    action_name: Literal['process_refund']\n"
+        "    order_id: str = Field(pattern=r'^ORD-[0-9]{5}$')\n"
+        "    amount_usd: float = Field(ge=0.01, le=50.00)  # Axiomatic Ceiling: C_r <= $50.00\n"
+        "    reason: str = Field(max_length=200)\n\n"
+        "class CustomerSupportTier1Action(BaseModel):\n"
+        "    action: LookupOrderStatus | ProcessRefundTier1\n"
+    )
+    r_code.font.name = 'Courier New'
+    r_code.font.size = Pt(8.5)
+    r_code.font.color.rgb = RGBColor(0x0F, 0x17, 0x2A)
 
     # -------------------------------------------------------------
     # REFERENCES: 28 Verified 2024-2026 Citations
@@ -652,7 +710,7 @@ def build_word_manuscript():
     # Save to local and download destinations
     output_path_paper = "paper/manuscript_kbs_q1.docx"
     output_path_root = "manuscript_kbs_q1.docx"
-    output_path_downloads = "E:/Downloads/manuscript_kbs_q1.docx"
+    output_path_downloads_latest = "E:/Downloads/manuscript_kbs_q1_latest.docx"
 
     doc.save(output_path_paper)
     doc.save(output_path_root)
@@ -660,10 +718,10 @@ def build_word_manuscript():
     print(f"[SUCCESS] Saved Word manuscript to: {output_path_root}")
 
     try:
-        shutil.copy(output_path_paper, output_path_downloads)
-        print(f"[SUCCESS] Saved Word manuscript to: {output_path_downloads}")
+        shutil.copy(output_path_paper, output_path_downloads_latest)
+        print(f"[SUCCESS] Saved Word manuscript to: {output_path_downloads_latest}")
     except Exception as e:
-        print(f"[WARNING] Could not copy to Downloads: {e}")
+        print(f"[WARNING] Could not copy to Downloads latest: {e}")
 
 
 if __name__ == "__main__":
