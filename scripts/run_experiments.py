@@ -7,6 +7,7 @@ Runs the 4-way comparative benchmark for the Knowledge-Based Systems (KBS) submi
 import argparse
 import json
 import sys
+import os
 from pathlib import Path
 
 # Add project root to sys.path
@@ -28,8 +29,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="meta-llama/Meta-Llama-3-8B-Instruct",
-        help="Target base model identifier from Hugging Face"
+        default="Qwen/Qwen2.5-7B-Instruct",
+        help="Target model on Hugging Face (default: Qwen/Qwen2.5-7B-Instruct [ungated], or meta-llama/Meta-Llama-3-8B-Instruct)"
     )
     parser.add_argument(
         "--samples",
@@ -50,6 +51,12 @@ def main():
         help="Device to run inference on (cuda / cpu)"
     )
     parser.add_argument(
+        "--hf-token",
+        type=str,
+        default=None,
+        help="Hugging Face access token for gated models (or set HF_TOKEN env var)"
+    )
+    parser.add_argument(
         "--mock",
         action="store_true",
         help="Run in simulation/mock mode for fast local verification without GPU"
@@ -58,9 +65,11 @@ def main():
         "--output-dir",
         type=str,
         default="results",
-        help="Directory to save LaTeX tables and JSON metrics"
+        help="Directory to save LaTeX tables, plots, and JSON metrics"
     )
     args = parser.parse_args()
+
+    hf_token = args.hf_token or os.environ.get("HF_TOKEN")
 
     print("==================================================================")
     print("  KBS Q1 RESEARCH BENCHMARK: ONTOLOGY-CONSTRAINED AGENT DECODING  ")
@@ -68,6 +77,7 @@ def main():
     print(f"Target Model       : {args.model}")
     print(f"Sample Count       : {args.samples}")
     print(f"Ontology Config    : {args.config}")
+    print(f"Device             : {args.device}")
     print(f"Simulation Mode    : {args.mock}")
     print("------------------------------------------------------------------")
 
@@ -86,14 +96,28 @@ def main():
     print("[3/5] Initializing Experimental Conditions...")
     evaluator = BenchmarkEvaluator(ontology)
 
-    m0_vanilla = VanillaAgent(model_name=args.model, device=args.device, is_mock=args.mock)
-    m1_prompt = PromptGuardedAgent(model_name=args.model, device=args.device, is_mock=args.mock)
-    m2_posthoc = PostHocClassifierAgent(base_agent=m0_vanilla, is_mock=args.mock)
+    m0_vanilla = VanillaAgent(
+        model_name=args.model,
+        device=args.device,
+        is_mock=args.mock,
+        hf_token=hf_token
+    )
+    m1_prompt = PromptGuardedAgent(
+        model_name=args.model,
+        device=args.device,
+        is_mock=args.mock,
+        hf_token=hf_token
+    )
+    m2_posthoc = PostHocClassifierAgent(
+        base_agent=m0_vanilla,
+        is_mock=args.mock
+    )
     m_star_proposed = OntologyConstrainedAgent(
         model_name=args.model,
         ontology=ontology,
         device=args.device,
-        is_mock=args.mock
+        is_mock=args.mock,
+        hf_token=hf_token
     )
 
     # Step 4: Run Comparative Evaluations
@@ -101,7 +125,7 @@ def main():
     results = []
 
     print("      -> Evaluating M0: Vanilla Unconstrained Agent...")
-    res_m0 = evaluator.evaluate_harness("M0 (Vanilla Llama-3-8B)", m0_vanilla, dataset)
+    res_m0 = evaluator.evaluate_harness("M0 (Vanilla Base LLM)", m0_vanilla, dataset)
     results.append(res_m0)
 
     print("      -> Evaluating M1: In-Context Prompt-Guarded Agent...")
@@ -109,7 +133,7 @@ def main():
     results.append(res_m1)
 
     print("      -> Evaluating M2: Post-Hoc Classifier Guardrail...")
-    res_m2 = evaluator.evaluate_harness("M2 (Llama-Guard-3 Filter)", m2_posthoc, dataset)
+    res_m2 = evaluator.evaluate_harness("M2 (Post-Hoc Classifier)", m2_posthoc, dataset)
     results.append(res_m2)
 
     print("      -> Evaluating M*: Proposed Ontology-Constrained Decoder (O-CTD)...")
@@ -127,15 +151,22 @@ def main():
 
     print(f"      Wilcoxon Signed-Rank Test (M1 vs M*):")
     print(f"      Statistic: {wilcoxon_test.get('statistic')}, p-value: {wilcoxon_test.get('p_value'):.5e}")
-    print(f"      Result: {wilcoxon_test.get('interpretation')}")
+    print(f"      Effect Size (r): {wilcoxon_test.get('effect_size_r', 0.0):.3f}")
+    print(f"      Interpretation: {wilcoxon_test.get('interpretation')}")
 
-    # Export LaTeX Table
+    # Export LaTeX Tables & Figures
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    tex_path = str(out_dir / "table1_main_results.tex")
-    StatisticalReporter.export_latex_table(results, tex_path)
 
-    # Export Full JSON metrics
+    tex_table1 = str(out_dir / "table1_main_results.tex")
+    StatisticalReporter.export_latex_table(results, tex_table1)
+
+    tex_table2 = str(out_dir / "table2_category_ablation.tex")
+    StatisticalReporter.export_category_ablation_table(results, tex_table2)
+
+    StatisticalReporter.export_publication_plots(results, str(out_dir / "plots"))
+
+    # Export Detailed JSON
     json_path = out_dir / "summary_metrics.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(
@@ -148,7 +179,7 @@ def main():
             indent=2
         )
     print(f"[Export] Saved detailed metrics to {json_path}")
-    print("\n[SUCCESS] Benchmark run complete! Deliverables ready for manuscript inclusion.")
+    print("\n[SUCCESS] Elite Q1 Benchmark complete! All LaTeX tables and vector figures generated.")
 
 
 if __name__ == "__main__":
