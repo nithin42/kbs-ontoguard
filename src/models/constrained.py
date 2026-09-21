@@ -1,7 +1,7 @@
 """
 Proposed Framework (M*): Ontology-Constrained Token Decoding (O-CTD).
 Enforces formal axiomatic bounds at the token logit level during autoregressive decoding.
-Caches FSM parsers per role to maximize GPU throughput.
+Supports both Outlines v1.x (from_transformers) and v0.x architectures.
 """
 
 import time
@@ -16,7 +16,7 @@ class OntologyConstrainedAgent:
     """
     Proposed Neuro-Symbolic Agent:
     Couples autoregressive generation with token logit masking derived from formal RBAC axioms.
-    Caches FSM grammar parsers to ensure ultra-low token generation latency.
+    Dynamically adapts to Outlines v1.x and v0.x APIs.
     """
 
     def __init__(
@@ -34,6 +34,7 @@ class OntologyConstrainedAgent:
         self.hf_token = hf_token or os.environ.get("HF_TOKEN")
         self.compiler = OntologyGrammarCompiler(ontology)
         self.model = None
+        self.is_v1 = False
         self._generators: Dict[str, Any] = {}
 
         if not self.is_mock:
@@ -46,22 +47,46 @@ class OntologyConstrainedAgent:
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
             print(f"[Init] Initializing Outlines constrained engine with {self.model_name}...")
-            model = outlines.models.transformers(
-                self.model_name,
-                device=self.device,
-                model_kwargs={
-                    "torch_dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
-                    "token": self.hf_token,
-                    "trust_remote_code": True
-                }
-            )
-            self.model = model
-            print("[Init] Outlines constrained engine ready. Pre-compiling role FSMs...")
-            # Pre-compile FSM for each role to avoid runtime compilation latency
-            for role_name in self.ontology.roles.keys():
-                schema = self.compiler.get_role_pydantic_schema(role_name)
-                self._generators[role_name] = outlines.generate.json(self.model, schema)
-            print("[Init] All role grammars successfully pre-compiled.")
+
+            if hasattr(outlines, "from_transformers"):
+                # Outlines v1.x API
+                tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
+                    token=self.hf_token,
+                    trust_remote_code=True
+                )
+                if tokenizer.pad_token_id is None:
+                    tokenizer.pad_token_id = tokenizer.eos_token_id
+
+                hf_model = AutoModelForCausalLM.from_pretrained(
+                    self.model_name,
+                    token=self.hf_token,
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    device_map="auto",
+                    trust_remote_code=True
+                )
+                self.model = outlines.from_transformers(hf_model, tokenizer)
+                self.is_v1 = True
+                print("[Init] Outlines v1.x engine initialized successfully.")
+            elif hasattr(outlines, "models") and callable(getattr(outlines.models, "transformers", None)):
+                # Outlines v0.x API
+                self.model = outlines.models.transformers(
+                    self.model_name,
+                    device=self.device,
+                    model_kwargs={
+                        "torch_dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
+                        "token": self.hf_token,
+                        "trust_remote_code": True
+                    }
+                )
+                self.is_v1 = False
+                for role_name in self.ontology.roles.keys():
+                    schema = self.compiler.get_role_pydantic_schema(role_name)
+                    self._generators[role_name] = outlines.generate.json(self.model, schema)
+                print("[Init] Outlines v0.x engine initialized with cached grammars.")
+            else:
+                raise RuntimeError("Unsupported Outlines API structure")
+
         except Exception as e:
             print(f"[Warning] Could not initialize Outlines engine ({e}).")
             print("[Warning] Using deterministic simulation mode.")
@@ -106,28 +131,36 @@ class OntologyConstrainedAgent:
                 }
             return call, elapsed
 
-        # Real Outlines GPU constrained generation with cached FSM
-        import outlines
-        if role not in self._generators:
-            schema = self.compiler.get_role_pydantic_schema(role)
-            self._generators[role] = outlines.generate.json(self.model, schema)
-
-        generator = self._generators[role]
+        # Real GPU Outlines Generation
+        schema = self.compiler.get_role_pydantic_schema(role)
         formatted_prompt = (
             f"<|system|>\nYou are an enterprise AI assistant assigned to role '{role}'. "
             f"Generate a valid JSON tool call conforming strictly to schema.\n"
             f"<|user|>\n{prompt}\n<|assistant|>\n"
         )
-        result = generator(formatted_prompt)
-        elapsed = time.perf_counter() - start_time
 
-        if hasattr(result, "model_dump"):
-            return result.model_dump(), elapsed
-        elif isinstance(result, dict):
-            return result, elapsed
-        elif isinstance(result, str):
-            try:
-                return json.loads(result), elapsed
-            except Exception:
-                pass
-        return {"action_name": "unknown_action", "arguments": {}}, elapsed
+        if self.is_v1:
+            # Outlines v1.x
+            raw_output = self.model(formatted_prompt, schema)
+            elapsed = time.perf_counter() - start_time
+            if isinstance(raw_output, str):
+                try:
+                    return json.loads(raw_output), elapsed
+                except Exception:
+                    pass
+            elif hasattr(raw_output, "model_dump"):
+                return raw_output.model_dump(), elapsed
+            return raw_output, elapsed
+        else:
+            # Outlines v0.x
+            import outlines
+            if role not in self._generators:
+                self._generators[role] = outlines.generate.json(self.model, schema)
+            generator = self._generators[role]
+            result = generator(formatted_prompt)
+            elapsed = time.perf_counter() - start_time
+            if hasattr(result, "model_dump"):
+                return result.model_dump(), elapsed
+            elif isinstance(result, dict):
+                return result, elapsed
+            return {"action_name": "unknown_action", "arguments": {}}, elapsed
