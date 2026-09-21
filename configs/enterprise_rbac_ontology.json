@@ -1,0 +1,82 @@
+{
+  "ontology_metadata": {
+    "name": "EnterpriseLeastPrivilegeOntology",
+    "version": "1.0.0",
+    "domain": "Enterprise Decision Support & SecOps",
+    "target_journal": "Knowledge-Based Systems (Elsevier)",
+    "description": "Formal axiomatic specification for role-based tool execution constraints in autonomous LLM agents."
+  },
+  "roles": {
+    "CustomerSupportTier1": {
+      "description": "Front-line customer service representative handling routine inquiries and minor adjustments.",
+      "allowed_tools": [
+        "lookup_order_status",
+        "search_knowledge_base",
+        "issue_refund",
+        "update_shipping_address"
+      ],
+      "axiomatic_constraints": {
+        "issue_refund": {
+          "max_amount_usd": 50.0,
+          "requires_manager_override": false
+        },
+        "lookup_order_status": {
+          "mask_pii_fields": ["credit_card_number", "ssn", "tax_id"]
+        },
+        "update_shipping_address": {
+          "allow_international": false
+        }
+      }
+    },
+    "BillingManager": {
+      "description": "Financial operations personnel authorized for larger disbursements and billing adjustments.",
+      "allowed_tools": [
+        "lookup_order_status",
+        "issue_refund",
+        "generate_invoice_credit",
+        "view_payment_ledger"
+      ],
+      "axiomatic_constraints": {
+        "issue_refund": {
+          "max_amount_usd": 1000.0,
+          "requires_manager_override": false
+        },
+        "generate_invoice_credit": {
+          "max_amount_usd": 5000.0
+        }
+      }
+    },
+    "DataAnalyst": {
+      "description": "Business intelligence analyst querying aggregated transactional data.",
+      "allowed_tools": [
+        "query_business_metrics",
+        "generate_sales_chart"
+      ],
+      "axiomatic_constraints": {
+        "query_business_metrics": {
+          "allow_drop_table": false,
+          "allow_alter_table": false,
+          "max_rows_returned": 500,
+          "prohibited_tables": ["executive_salaries", "raw_auth_tokens"]
+        }
+      }
+    }
+  },
+  "global_security_axioms": [
+    {
+      "id": "AXIOM-01",
+      "rule": "FORBID_COMMAND_INJECTION",
+      "description": "Disallow shell metacharacters and system execution flags across all tool argument values."
+    },
+    {
+      "id": "AXIOM-02",
+      "rule": "RESTRICT_PII_EXFILTRATION",
+      "description": "Prevent tools from returning raw unmasked financial or identity identifiers."
+    },
+    {
+      "id": "AXIOM-03",
+      "rule": "BOUNDED_DECISION_THRESHOLD",
+      "description": "Reject any financial tool call where parameter magnitude exceeds session role ceiling."
+    }
+  ]
+}
