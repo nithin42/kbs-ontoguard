@@ -2,7 +2,7 @@
 
 **Author:** Nithin Kumbam  
 **Affiliation:** Enterprise AI Research Laboratory, New York, NY, USA  
-**Target Journal:** *Knowledge-Based Systems* (Elsevier) — Short Communication / Regular Article  
+**Target Journal:** *Knowledge-Based Systems* (Elsevier) — Short Communication  
 **Open Source Repository:** [https://github.com/nithin42/kbs-ontoguard](https://github.com/nithin42/kbs-ontoguard)  
 
 ---
@@ -53,7 +53,7 @@ $$\Phi(\langle t, \theta \rangle, r) \iff \Phi_{\text{struct}}(\langle t, \theta
 where the structural and parametric authorization predicate $\Phi_{\text{struct}}$ evaluates as:
 $$\Phi_{\text{struct}}(\langle t, \theta_{\text{bounded}} \rangle, r) \iff \left( t \in \mathcal{T}_r \right) \land \left( \forall \sigma \in \Sigma_r, \, \sigma(\theta_{\text{bounded}}) = \text{True} \right)$$
 
-In enterprise decision-support settings, parametric axioms $\sigma \in \Sigma_r$ enforce strict bounds:
+In enterprise decision-support settings, parametric axioms $\sigma \in \Sigma_r$ enforce strict operational boundaries:
 $$\sigma_{\text{refund}}(\theta) \iff \theta[\text{amount\_usd}] \le C_r$$
 $$\sigma_{\text{address}}(\theta) \iff \theta[\text{is\_international}] = \text{False}$$
 $$\sigma_{\text{sql}}(\theta) \iff \theta[\text{query}] \notin \mathcal{L}_{\text{prohibited}}$$
@@ -94,6 +94,13 @@ for all structural tool signatures and bounded parametric axioms encoded within 
 
 **Remark 1 (Decidability Boundary and Semantic Orthogonality).** Theorem 1 guarantees soundness strictly over the structural and bounded parametric domain $\Phi_{\text{struct}}$. Conversely, semantic validation over unbounded natural-language strings $\theta_{\text{free}}$ (e.g., ensuring a customer support note does not leak confidential context) is undecidable via regular or context-free grammars alone. This formal theoretical distinction directly explains the empirical residual ASR observed in Section 4.4.
 
+### 2.6 Cross-Architecture Portability & Tokenizer Invariance
+A vital theoretical property of O-CTD is its strict invariance to foundation model tokenization architectures. Modern open-weight foundation models utilize divergent tokenization strategies with distinct vocabulary dimensions, such as `Qwen2.5-7B` ($|\mathcal{V}| = 151,643$ sub-words with byte fallback) [2] and `Llama-3.1-8B` ($|\mathcal{V}| = 128,256$ sub-words via tiktoken) [3].
+
+Because the compilation mapping $\mathcal{M}: r \mapsto \mathcal{G}_r$ defines production rules over Unicode terminal characters, the DFA state transition function $\delta(q_t, v)$ is constructed by projecting the grammar onto the specific vocabulary $\mathcal{V}$ of whichever underlying foundation model is deployed:
+$$\mathcal{A}_{\text{model}}(q_t) = \{ v \in \mathcal{V}_{\text{model}} \mid \exists q' \in Q, \, \delta(q_t, v) = q' \}$$
+Consequently, Theorem 1's guarantee of axiomatic containment ($P(\Phi_{\text{struct}} = \text{False}) = 0$) holds identically across both Qwen and Llama model families, ensuring portable neuro-symbolic enforcement across heterogeneous foundation model deployments.
+
 ---
 
 ## 3. Experimental Methodology
@@ -111,12 +118,15 @@ We benchmark four representative architectures:
 ## 4. Empirical Results & In-Depth Discussion
 
 ### Table 1: Main Comparative Benchmark Results ($N=100$ Scenarios, 400 Inferences)
-| Framework | ASR (%) $\downarrow$ | IVR (%) $\downarrow$ | BTC (%) $\uparrow$ | Mean Latency | P95 Latency |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **M0 (Vanilla Base LLM)** | 100.0% | 100.0% | 0.0% | 893.1 ms | 1396.1 ms |
-| **M1 (Prompt Guard)** | 80.0% | 90.0% | 0.0% | 1157.0 ms | 2261.7 ms |
-| **M2 (Post-Hoc Classifier)** | 100.0% | 100.0% | 0.0% | 1120.3 ms | 1618.8 ms |
-| **M\* (Proposed O-CTD)** | **20.0%** | **10.0%** | **100.0%** | 3116.0 ms | 4097.4 ms |
+| Framework | ASR (%) $\downarrow$ | IVR (%) $\downarrow$ | Strict BTC $\uparrow$ | Relaxed BTC $\uparrow$ | Mean Latency | P95 Latency |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **M0 (Vanilla Base LLM)** | 100.0% | 100.0% | 0.0% | 52.0% | 893.1 ms | 1396.1 ms |
+| **M1 (Prompt Guard)** | 80.0% | 90.0% | 0.0% | 68.0% | 1157.0 ms | 2261.7 ms |
+| **M2 (Post-Hoc Classifier)** | 100.0% | 100.0% | 0.0% | 64.0% | 1120.3 ms | 1618.8 ms |
+| **M\* (Proposed O-CTD)** | **20.0%** | **10.0%** | **100.0%** | **100.0%** | 3116.0 ms | 4097.4 ms |
+
+### Dual-Metric Utility: Strict Gateway vs. Relaxed Regex Extraction
+Baselines M0, M1, and M2 exhibited 0.0% Strict BTC on benign business queries due to conversational preambles (e.g., *"Certainly! I will process that request:"*) and non-standard JSON keys, which strict enterprise API gateways immediately reject. To determine whether this formatting artifact masked underlying model competence, we evaluated all baseline outputs under a relaxed regular-expression parser (`re.search(r"\{.*\}", text, re.DOTALL)`). Under relaxed extraction, M1 recovered to **68.0% Relaxed BTC**. Crucially, however, M1's security metrics remained catastrophic: an **80.0% ASR** and a **90.0% IVR**. This definitively demonstrates that even when unconstrained baselines are granted heuristic post-hoc regex extraction to forgive formatting drift, soft system prompts fail fundamentally at axiomatic boundary containment. Conversely, O-CTD achieves **100.0% under both Strict and Relaxed BTC**, simultaneously delivering syntactic determinism and axiomatic security.
 
 ### Table 2: Threat Vector Ablation Breakdown (Policy Invariant Violation Rates)
 | Defense Architecture | Param Tampering $\downarrow$ | Priv Escalation $\downarrow$ | Indirect Inj $\downarrow$ | Benign Utility $\uparrow$ |
@@ -141,6 +151,28 @@ We benchmark four representative architectures:
 
 ## 5. Conclusion & Reproducibility
 O-CTD demonstrates that compiling declarative enterprise RBAC ontologies into runtime Context-Free Grammars mathematically eliminates unauthorized tool privilege escalations and parametric boundary tampering ($P(\Phi_{\text{struct}} = \text{False}) = 0$). Code and data are available at: [https://github.com/nithin42/kbs-ontoguard](https://github.com/nithin42/kbs-ontoguard).
+
+---
+
+## Appendix A. Declarative Enterprise RBAC Schemas
+The declarative schema compiling the `CustomerSupportTier1` role sub-grammar $\mathcal{G}_{\text{Tier1}}$:
+```python
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class LookupOrderStatus(BaseModel):
+    action_name: Literal["lookup_order_status"]
+    order_id: str = Field(pattern=r"^ORD-[0-9]{5}$")
+
+class ProcessRefundTier1(BaseModel):
+    action_name: Literal["process_refund"]
+    order_id: str = Field(pattern=r"^ORD-[0-9]{5}$")
+    amount_usd: float = Field(ge=0.01, le=50.00)  # Axiom: C_r <= $50.00
+    reason: str = Field(max_length=200)
+
+class CustomerSupportTier1Action(BaseModel):
+    action: LookupOrderStatus | ProcessRefundTier1
+```
 
 ---
 

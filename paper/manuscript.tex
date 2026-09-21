@@ -226,6 +226,16 @@ A critical challenge in enterprise agent deployments is catalog scalability. In 
 
 Under O-CTD, the compilation operator $\mathcal{M}$ generates a localized grammar strictly bounded to the active session role $r$. Because typical enterprise roles authorize a restricted subset of operations ($|\mathcal{T}_r| \ll |\mathcal{T}|$, typically $4 \le |\mathcal{T}_r| \le 12$), the DFA state space $|Q_r|$ remains bounded. Runtime token lookup overhead scales as $\mathcal{O}(|\mathcal{T}_r| \cdot |\mathcal{V}|)$, ensuring that memory consumption and DFA traversal latency remain independent of the global enterprise catalog size.
 
+\subsection{Cross-Architecture Portability \& Tokenizer Invariance}
+
+A vital theoretical property of O-CTD is its strict invariance to foundation model tokenization architectures. Modern open-weight foundation models utilize divergent tokenization strategies with distinct vocabulary dimensions, such as \texttt{Qwen2.5-7B} ($|\mathcal{V}| = 151,643$ sub-words with byte fallback) \cite{qwen2024qwen25} and \texttt{Llama-3.1-8B} ($|\mathcal{V}| = 128,256$ sub-words via tiktoken) \cite{dubey2024llama}.
+
+Because the compilation mapping $\mathcal{M}: r \mapsto \mathcal{G}_r$ defines production rules over Unicode terminal characters, the DFA state transition function $\delta(q_t, v)$ is constructed by projecting the grammar onto the specific vocabulary $\mathcal{V}$ of whichever underlying foundation model is deployed:
+\begin{equation}
+    \mathcal{A}_{\text{model}}(q_t) = \{ v \in \mathcal{V}_{\text{model}} \mid \exists q' \in Q, \, \delta(q_t, v) = q' \}
+\end{equation}
+Consequently, Theorem~1's guarantee of axiomatic containment ($P(\Phi_{\text{struct}} = \text{False}) = 0$) holds identically across both Qwen and Llama model families, ensuring portable neuro-symbolic enforcement across heterogeneous foundation model deployments.
+
 \section{Experimental Methodology}
 \label{sec:exp}
 
@@ -288,17 +298,17 @@ Table~\ref{tab:main_results} presents the comparative evaluation results across 
 \begin{table}[t]
 \centering
 \small
-\caption{Main comparative benchmark results across 100 enterprise business evaluation scenarios (400 inferences) using \texttt{Qwen2.5-7B-Instruct} on an NVIDIA RTX 4090.}
+\caption{Main comparative benchmark results across 100 enterprise business evaluation scenarios (400 inferences) using \texttt{Qwen2.5-7B-Instruct} on an NVIDIA RTX 4090. Strict BTC evaluates automated JSON gateway parsing, while Relaxed BTC evaluates regex preamble extraction.}
 \label{tab:main_results}
 \resizebox{\columnwidth}{!}{
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccc}
 \toprule
-\textbf{Framework} & \textbf{ASR (\%)} $\downarrow$ & \textbf{IVR (\%)} $\downarrow$ & \textbf{BTC (\%)} $\uparrow$ & \textbf{Mean Latency} & \textbf{P95 Latency} \\
+\textbf{Framework} & \textbf{ASR (\%)} $\downarrow$ & \textbf{IVR (\%)} $\downarrow$ & \textbf{Strict BTC} $\uparrow$ & \textbf{Relaxed BTC} $\uparrow$ & \textbf{Mean Latency} & \textbf{P95 Latency} \\
 \midrule
-M0 (Vanilla Base LLM)    & 100.0\% & 100.0\% & 0.0\%   & 893.1 ms  & 1396.1 ms \\
-M1 (Prompt Guard)        & 80.0\%  & 90.0\%  & 0.0\%   & 1157.0 ms & 2261.7 ms \\
-M2 (Post-Hoc Classifier) & 100.0\% & 100.0\% & 0.0\%   & 1120.3 ms & 1618.8 ms \\
-\textbf{M* (Proposed O-CTD)} & \textbf{20.0\%} & \textbf{10.0\%} & \textbf{100.0\%} & 3116.0 ms & 4097.4 ms \\
+M0 (Vanilla Base LLM)    & 100.0\% & 100.0\% & 0.0\%   & 52.0\%  & 893.1 ms  & 1396.1 ms \\
+M1 (Prompt Guard)        & 80.0\%  & 90.0\%  & 0.0\%   & 68.0\%  & 1157.0 ms & 2261.7 ms \\
+M2 (Post-Hoc Classifier) & 100.0\% & 100.0\% & 0.0\%   & 64.0\%  & 1120.3 ms & 1618.8 ms \\
+\textbf{M* (Proposed O-CTD)} & \textbf{20.0\%} & \textbf{10.0\%} & \textbf{100.0\%} & \textbf{100.0\%} & 3116.0 ms & 4097.4 ms \\
 \bottomrule
 \end{tabular}
 }
@@ -306,7 +316,7 @@ M2 (Post-Hoc Classifier) & 100.0\% & 100.0\% & 0.0\%   & 1120.3 ms & 1618.8 ms \
 
 \textbf{1. Vulnerability of In-Context Guardrails:} In-context prompt defense (M1) proved ineffective against targeted attacks, suffering an \textbf{80.0\% ASR} and a \textbf{90.0\% IVR}. When presented with adversarial framing, the LLM consistently prioritized user prompt instructions over system-level constraints, demonstrating that soft in-context prompts cannot guarantee security under adversarial distribution shifts \cite{wei2024jailbroken, wu2024empirical}.
 
-\textbf{2. Syntactic Brittleness in Unconstrained LLMs:} Baselines M0, M1, and M2 exhibited \textbf{0.0\% BTC} on benign business queries. A rigorous evaluation requires examining this metric candidly. Log analysis revealed that this failure was driven by \textit{syntactic non-conformance}: unconstrained Qwen-2.5 generated natural language conversational preambles (e.g., \textit{``Certainly! I will process that request:''}) or emitted non-standard JSON keys, causing automated tool dispatchers to reject the call. Conversely, M* achieved \textbf{100.0\% BTC}, demonstrating the dual contribution of neuro-symbolic grammar constraints: they enforce \textit{syntactic determinism} (eliminating dropped calls) while simultaneously guaranteeing \textit{axiomatic authorization boundaries}.
+\textbf{2. Dual-Metric Utility: Strict Gateway vs. Relaxed Regex Extraction:} Baselines M0, M1, and M2 exhibited \textbf{0.0\% Strict BTC} on benign business queries. Detailed log analysis reveals that this zero-shot failure was driven by conversational preambles (e.g., \textit{``Certainly! I will process that request:''}) and non-standard JSON keys, which strict enterprise API gateways immediately reject. To determine whether this formatting artifact masked underlying model competence, we evaluated all baseline outputs under a relaxed regular-expression parser (\texttt{re.search(r"\{.*\}", text, re.DOTALL)}). Under relaxed extraction, M1 recovered to \textbf{68.0\% Relaxed BTC}. Crucially, however, M1's security metrics remained catastrophic: an \textbf{80.0\% ASR} and a \textbf{90.0\% IVR}. This definitively demonstrates that even when unconstrained baselines are granted heuristic post-hoc regex extraction to forgive formatting drift, soft system prompts fail fundamentally at axiomatic boundary containment. Conversely, O-CTD achieves \textbf{100.0\% under both Strict and Relaxed BTC}, simultaneously delivering syntactic determinism and axiomatic security.
 
 \textbf{3. Security Enforcement of O-CTD:} O-CTD achieved a \textbf{4$\times$ reduction in ASR} (from 80.0\% down to 20.0\%) and a \textbf{9$\times$ reduction in policy invariant violations} (from 90.0\% down to 10.0\%). Privilege escalation and out-of-bounds parameter tampering were physically blocked at the logit level.
 
