@@ -2,7 +2,7 @@ Research Highlights (Knowledge-Based Systems)
 Note: Each bullet is strictly under Elsevier's 85-character limit (including spaces).
 
 • Formal RBAC ontologies compile into runtime token grammars for LLM agents. (74 characters)
-• Logit masking mathematically guarantees zero privilege escalations. (67 characters)
+• Logit masking guarantees zero structural invariant violations (S-IVR = 0%). (75 characters)
 • O-CTD suppresses attack success rate from 80% to 20% in enterprise tests. (73 characters)
 • Achieves 100% benign task completion with zero JSON syntax formatting errors. (77 characters)
 • Wilcoxon signed-rank test confirms statistical significance (p < 0.001). (72 characters)

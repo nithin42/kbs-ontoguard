@@ -78,7 +78,7 @@ def generate_cover_letter():
     # Body Paragraph 4: Key practical results
     doc.add_paragraph(
         "We tested this approach across 100 enterprise business scenarios using Qwen-2.5-7B. O-CTD reduced attack success rates "
-        "from 80% down to 20%, brought policy invariant violations down to 10%, and maintained 100% benign task completion."
+        "from 80% down to 20%, completely eliminated structural policy invariant violations (0.0%), and maintained 100% benign task completion."
     )
 
     # Body Paragraph 5: Fit with KBS

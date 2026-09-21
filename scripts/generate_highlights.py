@@ -26,7 +26,7 @@ def generate_highlights():
 
     bullets = [
         "Formal RBAC ontologies compile into runtime token grammars for LLM agents.",
-        "Logit masking mathematically guarantees zero privilege escalations.",
+        "Logit masking guarantees zero structural invariant violations (S-IVR = 0%).",
         "O-CTD suppresses attack success rate from 80% to 20% in enterprise tests.",
         "Achieves 100% benign task completion with zero JSON syntax formatting errors.",
         "Wilcoxon signed-rank test confirms statistical significance (p < 0.001)."
@@ -39,15 +39,19 @@ def generate_highlights():
         r.font.size = Pt(11)
 
     doc.save('paper/highlights.docx')
-    doc.save('E:/Downloads/highlights.docx')
+    print("[SUCCESS] Successfully saved paper/highlights.docx")
+
+    try:
+        doc.save('E:/Downloads/highlights.docx')
+        print("[SUCCESS] Successfully saved E:/Downloads/highlights.docx")
+    except Exception as e:
+        print(f"[WARNING] Could not save E:/Downloads/highlights.docx (file may be open in Word): {e}")
 
     with open('paper/highlights.txt', 'w', encoding='utf-8') as f:
         f.write("Research Highlights (Knowledge-Based Systems)\n")
         f.write("Note: Each bullet is strictly under Elsevier's 85-character limit (including spaces).\n\n")
         for b in bullets:
             f.write(f"• {b} ({len(b)} characters)\n")
-
-    print("[SUCCESS] Successfully generated paper/highlights.docx and E:/Downloads/highlights.docx")
 
 if __name__ == "__main__":
     generate_highlights()
