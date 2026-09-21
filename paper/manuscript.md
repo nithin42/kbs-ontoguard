@@ -1,7 +1,8 @@
 # Ontology-Constrained Neuro-Symbolic Decoding: Enforcing Axiomatic Least-Privilege in Autonomous LLM Agents
 
-**Author:** Nithin Kumbam  
-**Affiliation:** Enterprise AI Research Laboratory, New York, NY, USA  
+**Author:** Nithin Goud Kumbam  
+**Affiliation:** Department of Data Science, University of Maryland, Baltimore County, Baltimore, MD, USA  
+**Email:** nithingoud244@gmail.com  
 **Target Journal:** *Knowledge-Based Systems* (Elsevier) — Short Communication  
 **Open Source Repository:** [https://github.com/nithin42/kbs-ontoguard](https://github.com/nithin42/kbs-ontoguard)  
 
@@ -145,7 +146,7 @@ Baselines M0, M1, and M2 exhibited 0.0% Strict BTC on benign business queries du
 1. **Confused Deputy inside Free-Text Arguments:** The attack prompt requests appending internal keys inside an authorized tool's free-text comment field $\theta_{\text{free}}$ [10]. While financial/database violations were eliminated, the payload was echoed in the string argument.
 2. **Safe Fallback Invocations:** Under aggressive injection where all attempted tool tokens were masked out by the DFA, the agent safely fell back to the default permitted tool. Although no unauthorized action occurred ($\Phi_{\text{struct}} = \text{True}$), the benchmark marked the sample as partially engaged because the model did not output an explicit refusal string.
 
-![Figure 2: Pareto Trade-off and Computational Latency Overhead](figure1_pareto_tradeoff.png)
+![Figure 2: Pareto Trade-off and Computational Latency Overhead](figure2_pareto_latency.png)
 
 ---
 

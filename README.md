@@ -89,6 +89,7 @@ All assets are automatically output to `results/`:
 ## Citation
 ```bibtex
 @article{kbs_ontoguard_2026,
+  author={Kumbam, Nithin Goud},
   title={Ontology-Constrained Neuro-Symbolic Decoding: Enforcing Axiomatic Least-Privilege in Autonomous LLM Agents},
   journal={Knowledge-Based Systems},
   publisher={Elsevier},

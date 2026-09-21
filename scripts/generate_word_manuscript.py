@@ -204,7 +204,7 @@ def build_word_manuscript():
     # Author
     p_author = doc.add_paragraph()
     p_author.paragraph_format.space_after = Pt(2)
-    r_auth = p_author.add_run("Nithin Kumbam*")
+    r_auth = p_author.add_run("Nithin Goud Kumbam*")
     r_auth.font.name = 'Times New Roman'
     r_auth.font.size = Pt(12)
     r_auth.font.bold = True
@@ -212,7 +212,7 @@ def build_word_manuscript():
     # Affiliation
     p_affil = doc.add_paragraph()
     p_affil.paragraph_format.space_after = Pt(2)
-    r_aff = p_affil.add_run("Enterprise AI Research Laboratory, New York, NY 10001, USA")
+    r_aff = p_affil.add_run("Department of Data Science, University of Maryland, Baltimore County, Baltimore, MD, USA")
     r_aff.font.name = 'Times New Roman'
     r_aff.font.size = Pt(10)
     r_aff.font.italic = True
@@ -221,7 +221,7 @@ def build_word_manuscript():
     # Corresponding Footnote
     p_cor = doc.add_paragraph()
     p_cor.paragraph_format.space_after = Pt(12)
-    r_c = p_cor.add_run("* Corresponding author. E-mail: nithin@research.org | Repository: https://github.com/nithin42/kbs-ontoguard")
+    r_c = p_cor.add_run("* Corresponding author. E-mail: nithingoud244@gmail.com | Repository: https://github.com/nithin42/kbs-ontoguard")
     r_c.font.name = 'Times New Roman'
     r_c.font.size = Pt(9)
     r_c.font.color.rgb = RGBColor(0x64, 0x74, 0x8B)
@@ -715,7 +715,7 @@ def build_word_manuscript():
     add_heading_2("4.4 Computational Overhead & The Pareto Frontier")
 
     # Insert Figure 2: Pareto Trade-off
-    pareto_png_path = "paper/figure1_pareto_tradeoff.png"
+    pareto_png_path = "paper/figure2_pareto_latency.png"
     if os.path.exists(pareto_png_path):
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -767,7 +767,7 @@ def build_word_manuscript():
 
     add_heading_2("CRediT Authorship Contribution Statement")
     doc.add_paragraph(
-        "Nithin Kumbam: Conceptualization, Methodology, Software, Validation, Formal analysis, Investigation, Data curation, "
+        "Nithin Goud Kumbam: Conceptualization, Methodology, Software, Validation, Formal analysis, Investigation, Data curation, "
         "Writing – original draft, Writing – review & editing, Visualization, Project administration."
     )
 
@@ -846,19 +846,23 @@ def build_word_manuscript():
 
     # Save to local and download destinations
     output_path_paper = "paper/manuscript_kbs_q1.docx"
-    output_path_root = "manuscript_kbs_q1.docx"
+    output_path_downloads_v5 = "E:/Downloads/manuscript_kbs_q1_v5.docx"
     output_path_downloads_latest = "E:/Downloads/manuscript_kbs_q1_latest.docx"
 
     doc.save(output_path_paper)
-    doc.save(output_path_root)
     print(f"[SUCCESS] Saved Word manuscript to: {output_path_paper}")
-    print(f"[SUCCESS] Saved Word manuscript to: {output_path_root}")
+
+    try:
+        shutil.copy(output_path_paper, output_path_downloads_v5)
+        print(f"[SUCCESS] Saved Word manuscript to: {output_path_downloads_v5}")
+    except Exception as e:
+        print(f"[WARNING] Could not copy to Downloads v5: {e}")
 
     try:
         shutil.copy(output_path_paper, output_path_downloads_latest)
         print(f"[SUCCESS] Saved Word manuscript to: {output_path_downloads_latest}")
     except Exception as e:
-        print(f"[WARNING] Could not copy to Downloads latest: {e}")
+        print(f"[WARNING] Could not copy to Downloads latest (file may be open in Word): {e}")
 
 
 if __name__ == "__main__":
