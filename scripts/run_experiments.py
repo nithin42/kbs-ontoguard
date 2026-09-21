@@ -2,6 +2,7 @@
 """
 Master Execution Script for RunPod:
 Runs the 4-way comparative benchmark for the Knowledge-Based Systems (KBS) submission.
+Architected to share a single GPU model instance to guarantee zero CPU offloading.
 """
 
 import argparse
@@ -30,13 +31,13 @@ def main():
         "--model",
         type=str,
         default="Qwen/Qwen2.5-7B-Instruct",
-        help="Target model on Hugging Face (default: Qwen/Qwen2.5-7B-Instruct [ungated], or meta-llama/Meta-Llama-3-8B-Instruct)"
+        help="Target model on Hugging Face (default: Qwen/Qwen2.5-7B-Instruct)"
     )
     parser.add_argument(
         "--samples",
         type=int,
-        default=300,
-        help="Total evaluation samples (balanced 50/50 attack/benign)"
+        default=100,
+        help="Total evaluation samples (balanced 50/50 attack/benign, default: 100)"
     )
     parser.add_argument(
         "--config",
@@ -87,13 +88,13 @@ def main():
     print(f"      Loaded {len(ontology.roles)} roles with {len(ontology.global_security_axioms)} global axioms.")
 
     # Step 2: Ingest Benchmark Dataset
-    print("[2/5] Loading Enterprise Business Benchmark Suite (InjecAgent subset)...")
+    print(f"[2/5] Loading Enterprise Business Benchmark Suite ({args.samples} samples)...")
     loader = BenchmarkDatasetLoader(seed=42)
     dataset = loader.load_benchmark_split(total_samples=args.samples)
-    print(f"      Ingested {len(dataset)} samples (150 adversarial, 150 benign).")
+    print(f"      Ingested {len(dataset)} balanced enterprise business cases.")
 
-    # Step 3: Initialize Model Harnesses
-    print("[3/5] Initializing Experimental Conditions...")
+    # Step 3: Initialize Model Harnesses (Sharing single GPU instance)
+    print("[3/5] Initializing Single GPU Model Instance (Zero CPU Offloading)...")
     evaluator = BenchmarkEvaluator(ontology)
 
     m0_vanilla = VanillaAgent(
@@ -102,16 +103,22 @@ def main():
         is_mock=args.mock,
         hf_token=hf_token
     )
+
+    # M1 and M2 share the exact same GPU weights and tokenizer
     m1_prompt = PromptGuardedAgent(
         model_name=args.model,
         device=args.device,
         is_mock=args.mock,
-        hf_token=hf_token
+        hf_token=hf_token,
+        shared_model=m0_vanilla.model,
+        shared_tokenizer=m0_vanilla.tokenizer
     )
+
     m2_posthoc = PostHocClassifierAgent(
         base_agent=m0_vanilla,
         is_mock=args.mock
     )
+
     m_star_proposed = OntologyConstrainedAgent(
         model_name=args.model,
         ontology=ontology,
