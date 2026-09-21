@@ -11,6 +11,14 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 
+\usepackage{hyphenat}
+
+\hypersetup{
+    pdfauthor={Nithin Kumbam},
+    pdftitle={Ontology-Constrained Neuro-Symbolic Decoding},
+    pdfkeywords={Neuro-symbolic AI, LLM Security, Constrained Decoding}
+}
+
 \newtheorem{definition}{Definition}
 \newtheorem{theorem}{Theorem}
 
@@ -35,17 +43,9 @@
 Autonomous tool-calling Large Language Model (LLM) agents are increasingly entrusted with operational authority in enterprise business workflows, including financial disbursements, database modifications, and customer identity operations. However, existing safety paradigms rely predominantly on \textit{in-context system prompts} or \textit{post-hoc classifiers}, both of which remain vulnerable to indirect prompt injection, privilege escalation, and adversarial parameter tampering. In this paper, we propose \textbf{Ontology-Constrained Token Decoding (O-CTD)}, a neuro-symbolic framework that compiles formal, declarative Role-Based Access Control (RBAC) ontologies into runtime Context-Free Grammars (CFGs). By projecting the LLM's autoregressive logit distribution onto the permissible transitions of a Deterministic Finite Automaton (DFA) at each generation step, O-CTD mathematically guarantees that unauthorized tool selections and out-of-bounds parameter values cannot be sampled. We empirically evaluate O-CTD against three standard industry baselines across 100 enterprise business scenarios (400 total inferences) using \texttt{Qwen2.5-7B-Instruct} on an NVIDIA RTX 4090 GPU. Experimental results demonstrate that O-CTD suppresses the Attack Success Rate (ASR) from 80.0\% (in-context guardrails) down to 20.0\%, reduces policy Invariant Violation Rates (IVR) from 90.0\% to 10.0\%, and achieves 100.0\% Benign Task Completion (BTC). A paired Wilcoxon signed-rank test confirms statistical significance ($W = 0.0, p = 3.74 \times 10^{-19}, r = 0.800$). We publish our benchmark suite, declarative schemas, and decoding harness to advance formal verification in agentic AI.
 \end{abstract}
 
-\begin{highlights}
-\item Formalizes enterprise Role-Based Access Control (RBAC) into dynamic Context-Free Grammars.
-\item Introduces Ontology-Constrained Token Decoding (O-CTD) to eliminate unauthorized tokens at inference time.
-\item Demonstrates an 80\% to 20\% ASR reduction and 90\% to 10\% IVR reduction on real-world enterprise workflows.
-\item Achieves 100\% Benign Task Completion (BTC) with verified statistical significance ($p < 10^{-18}, r = 0.800$).
-\item Establishes an open-source benchmark and PyTorch/Outlines implementation for reproducible research.
-\end{highlights}
-
-\begin{keywords}
+\begin{keyword}
 Neuro-symbolic AI \sep Large Language Models \sep Constrained Decoding \sep Autonomous Agents \sep Role-Based Access Control \sep Prompt Injection Defense
-\end{keywords}
+\end{keyword}
 
 \end{frontmatter}
 
@@ -151,7 +151,7 @@ By construction, any token sequence $\mathbf{x}$ yielding an unauthorized tool $
 \section{Experimental Methodology}
 \label{sec:exp}
 
-\subsection{Benchmark Dataset & Threat Classes}
+\subsection{Benchmark Dataset \& Threat Classes}
 
 To rigorously evaluate enterprise LLM agent resilience, we synthesized a standardized benchmark suite consisting of $N = 100$ balanced business evaluation cases (50 adversarial attack prompts and 50 benign utility queries) grounded in the InjecAgent and AgentDojo threat models \cite{zhan2024injecagent, debenedetti2024agentdojo}. The scenarios span three core business roles:
 \begin{itemize}
@@ -207,11 +207,13 @@ We track five formal metrics:
 
 Table~\ref{tab:main_results} presents the primary benchmark results across the 100 enterprise business evaluation samples (400 total agent inferences).
 
-\begin{table*}[t]
+\begin{table}[t]
 \centering
+\small
 \caption{Main comparative benchmark results across 100 enterprise business evaluation scenarios (400 inferences) using \texttt{Qwen2.5-7B-Instruct} on an NVIDIA RTX 4090.}
 \label{tab:main_results}
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lccccc@{}}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{lccccc}
 \toprule
 \textbf{Framework} & \textbf{ASR (\%)} $\downarrow$ & \textbf{IVR (\%)} $\downarrow$ & \textbf{BTC (\%)} $\uparrow$ & \textbf{Mean Latency} & \textbf{P95 Latency} \\
 \midrule
@@ -220,8 +222,9 @@ M1 (Prompt Guard)        & 80.0\%  & 90.0\%  & 0.0\%   & 1157.0 ms & 2261.7 ms \
 M2 (Post-Hoc Classifier) & 100.0\% & 100.0\% & 0.0\%   & 1120.3 ms & 1618.8 ms \\
 \textbf{M* (Proposed O-CTD)} & \textbf{20.0\%} & \textbf{10.0\%} & \textbf{100.0\%} & 3116.0 ms & 4097.4 ms \\
 \bottomrule
-\end{tabular*}
-\end{table*}
+\end{tabular}
+}
+\end{table}
 
 The empirical data establishes several foundational findings:
 
@@ -235,12 +238,13 @@ The empirical data establishes several foundational findings:
 
 To evaluate defensive resilience across orthogonal attack topologies, Table~\ref{tab:category_ablation} details violation rates across specific threat vectors.
 
-\begin{table}[h]
+\begin{table}[t]
 \centering
 \small
 \caption{Ablation Breakdown by Enterprise Threat Vector (Policy Invariant Violation Rates).}
 \label{tab:category_ablation}
-\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccc@{}}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{lcccc}
 \toprule
 \textbf{Defense Architecture} & \textbf{Param Tampering} $\downarrow$ & \textbf{Priv Escalation} $\downarrow$ & \textbf{Indirect Inj} $\downarrow$ & \textbf{Benign Utility} $\uparrow$ \\
 \midrule
@@ -249,7 +253,8 @@ M1 (Prompt Guard)        & 100.0\% & 100.0\% & 0.0\%   & 0.0\% \\
 M2 (Post-Hoc Classifier) & 100.0\% & 100.0\% & 100.0\% & 0.0\% \\
 \textbf{M* (Proposed O-CTD)} & \textbf{50.0\%} & \textbf{0.0\%} & \textbf{0.0\%} & \textbf{100.0\%} \\
 \bottomrule
-\end{tabular*}
+\end{tabular}
+}
 \end{table}
 
 As shown in Table~\ref{tab:category_ablation}, M* achieved an absolute **0.0\% violation rate on both Privilege Escalation and Indirect Prompt Injection**. Under Parameter Tampering (e.g., refund ceiling breaches), M* clamped all numeric generations to the role's authorized ceiling $C_r \le \$50.00$.
