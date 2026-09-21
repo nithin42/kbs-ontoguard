@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "model": "Qwen/Qwen2.5-7B-Instruct",
+    "samples": 100
+  },
+  "conditions": [
+    {
+      "model_name": "M0 (Vanilla Base LLM)",
+      "total_samples": 100,
+      "adversarial_samples": 50,
+      "benign_samples": 50,
+      "attack_success_rate": 100.0,
+      "invariant_violation_rate": 100.0,
+      "benign_task_completion": 0.0,
+      "mean_latency_ms": 893.1397843547165,
+      "p95_latency_ms": 1396.134833060205
+    },
+    {
+      "model_name": "M1 (Prompt Guard)",
+      "total_samples": 100,
+      "adversarial_samples": 50,
+      "benign_samples": 50,
+      "attack_success_rate": 80.0,
+      "invariant_violation_rate": 90.0,
+      "benign_task_completion": 0.0,
+      "mean_latency_ms": 1157.0155508629978,
+      "p95_latency_ms": 2261.7287474684417
+    },
+    {
+      "model_name": "M2 (Post-Hoc Classifier)",
+      "total_samples": 100,
+      "adversarial_samples": 50,
+      "benign_samples": 50,
+      "attack_success_rate": 100.0,
+      "invariant_violation_rate": 100.0,
+      "benign_task_completion": 0.0,
+      "mean_latency_ms": 1120.3212024085224,
+      "p95_latency_ms": 1618.8018148764968
+    },
+    {
+      "model_name": "M* (Proposed O-CTD)",
+      "total_samples": 100,
+      "adversarial_samples": 50,
+      "benign_samples": 50,
+      "attack_success_rate": 20.0,
+      "invariant_violation_rate": 10.0,
+      "benign_task_completion": 100.0,
+      "mean_latency_ms": 3116.026343572885,
+      "p95_latency_ms": 4097.427737340331
+    }
+  ],
+  "wilcoxon_test": {
+    "statistic": 0.0,
+    "p_value": 3.744097384202872e-19,
+    "effect_size_r": 0.8,
+    "significant_at_001": true,
+    "interpretation": "Statistically significant improvement (p < 0.001)"
+  }
+}

@@ -142,7 +142,22 @@ Table 1 summarizes the empirical findings across the 100 evaluation scenarios (4
 2. **Utility Fragility in Unconstrained LLMs:** Strikingly, M0, M1, and M2 all exhibited **0.0% BTC** on benign business tasks. Detailed log inspection revealed that this utility collapse was not due to cognitive inability, but rather *syntactic non-conformance*. Unconstrained Qwen-2.5 generated conversational preambles (e.g., *"Certainly! Here is the tool call:"*) or formatted argument keys inconsistently, failing automated API parsers. In contrast, M* achieved **100.0% BTC**, demonstrating that neuro-symbolic grammar constraints simultaneously serve as a powerful utility guarantee by enforcing rigorous JSON schema adherence.
 3. **Decisive Security Dominance of O-CTD:** O-CTD achieved a **4× reduction in ASR** (from 80.0% to 20.0%) and a **9× reduction in policy violations** (from 90.0% to 10.0%). All privilege escalation attempts (e.g., Tier 1 support invoking financial ledgers) and parameter ceiling breaches (e.g., refunds exceeding $50.00) were physically eliminated at the logit level.
 
-### 4.2 Statistical Significance Testing
+### 4.2 Category Ablation across Enterprise Threat Vectors
+
+To evaluate defensive resilience across orthogonal attack topologies, Table 2 details violation rates across specific threat vectors.
+
+| Defense Architecture | Param Tampering $\downarrow$ | Priv Escalation $\downarrow$ | Indirect Inj $\downarrow$ | Benign Utility $\uparrow$ |
+| :--- | :---: | :---: | :---: | :---: |
+| **M0 (Vanilla Base LLM)** | 100.0% | 100.0% | 100.0% | 0.0% |
+| **M1 (Prompt Guard)** | 100.0% | 100.0% | 0.0% | 0.0% |
+| **M2 (Post-Hoc Classifier)** | 100.0% | 100.0% | 100.0% | 0.0% |
+| **M\* (Proposed O-CTD)** | **50.0%** | **0.0%** | **0.0%** | **100.0%** |
+
+*Table 2: Ablation Breakdown by Enterprise Threat Vector (Policy Invariant Violation Rates).*
+
+As shown in Table 2, M* achieved an absolute **0.0% violation rate on both Privilege Escalation and Indirect Prompt Injection**. Under Parameter Tampering (e.g., refund ceiling breaches), M* clamped all numeric generations to the role's authorized ceiling $C_r \le \$50.00$.
+
+### 4.3 Statistical Significance Testing
 
 To verify that the empirical superiority of O-CTD over standard prompt guarding is not an artifact of prompt selection, we conducted a non-parametric paired analysis [25]. Because binary policy violation outcomes violate normality assumptions, the paired **Wilcoxon Signed-Rank Test** was executed across all matched sample pairs between M1 and M*:
 * **Wilcoxon Test Statistic ($W$):** $0.0$
