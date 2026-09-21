@@ -124,7 +124,9 @@ def main():
         ontology=ontology,
         device=args.device,
         is_mock=args.mock,
-        hf_token=hf_token
+        hf_token=hf_token,
+        shared_model=m0_vanilla.model,
+        shared_tokenizer=m0_vanilla.tokenizer
     )
 
     # Step 4: Run Comparative Evaluations

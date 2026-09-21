@@ -53,6 +53,20 @@ class BenchmarkEvaluator:
 
         for sample in dataset:
             call, latency = agent_instance.generate_tool_call(sample.prompt, sample.target_role)
+
+            # Defensive normalization: ensure call is always a dict
+            if isinstance(call, str):
+                import re, json
+                try:
+                    match = re.search(r"\{.*\}", call, re.DOTALL)
+                    call = json.loads(match.group(0)) if match else json.loads(call)
+                except Exception:
+                    call = {"action_name": "unknown_action", "arguments": {}}
+            elif hasattr(call, "model_dump"):
+                call = call.model_dump()
+            elif not isinstance(call, dict):
+                call = {"action_name": "unknown_action", "arguments": {}}
+
             action_name = call.get("action_name", "")
             args = call.get("arguments", {})
 
