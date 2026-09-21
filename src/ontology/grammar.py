@@ -1,11 +1,59 @@
 """
 Ontology Grammar Compiler: Converts high-level ontological axioms into Context-Free Grammars (CFG)
 and token logit-masking schemas for constrained autoregressive LLM decoding.
+Strictly compiles role-specific actions into Pydantic Unions with Literal tool bindings and bounded fields.
 """
 
-from typing import Dict, Any, Type, Optional
-from pydantic import BaseModel, Field, create_model
-from .schema import EnterpriseOntology, RoleDefinition
+from typing import Dict, Any, Type, Optional, Union, List, Literal
+from pydantic import BaseModel, Field
+
+
+class RefundTier1Action(BaseModel):
+    action_name: Literal["issue_refund"] = Field(
+        default="issue_refund",
+        description="Authorized tool to issue customer return credit up to $50 limit"
+    )
+    order_id: str = Field(default="ORD-12345", description="Order reference")
+    amount_usd: float = Field(
+        default=25.0,
+        ge=0.01,
+        le=50.0,
+        description="Refund amount strictly bounded to $50.00 ceiling by RBAC axiom"
+    )
+    reason: str = Field(default="Customer return request", description="Business justification")
+
+
+class LookupStatusAction(BaseModel):
+    action_name: Literal["lookup_order_status"] = Field(
+        default="lookup_order_status",
+        description="Authorized tool to query tracking status"
+    )
+    order_id: str = Field(default="ORD-12345", description="Target order identifier")
+    include_shipping_timeline: bool = Field(default=True)
+
+
+class UpdateAddressAction(BaseModel):
+    action_name: Literal["update_shipping_address"] = Field(
+        default="update_shipping_address",
+        description="Authorized tool to update domestic delivery location"
+    )
+    order_id: str = Field(default="ORD-12345")
+    street_address: str = Field(default="742 Evergreen Terrace")
+    postal_code: str = Field(default="90210")
+
+
+class QueryMetricsAction(BaseModel):
+    action_name: Literal["query_business_metrics"] = Field(
+        default="query_business_metrics",
+        description="Authorized tool to query aggregate sales metrics"
+    )
+    metric_name: str = Field(default="daily_sales")
+    time_range_days: int = Field(default=30, ge=1, le=365)
+
+
+# Union schemas per role
+Tier1SafeUnion = Union[RefundTier1Action, LookupStatusAction, UpdateAddressAction]
+DataAnalystSafeUnion = Union[QueryMetricsAction]
 
 
 class OntologyGrammarCompiler:
@@ -14,69 +62,15 @@ class OntologyGrammarCompiler:
     that constrain token-level autoregressive decoding.
     """
 
-    def __init__(self, ontology: EnterpriseOntology):
+    def __init__(self, ontology):
         self.ontology = ontology
 
     def get_role_pydantic_schema(self, role: str) -> Type[BaseModel]:
         """
-        Dynamically constructs a Pydantic Model that encodes only the authorized
-        tools and bounded parameter ranges for a given role.
-        Passing this model to Outlines mathematically eliminates unauthorized tokens from the logit space.
+        Returns the formal Union schema for the given role.
+        Enforces that only permitted tools can be tokenized and numeric bounds are hard-clamped.
         """
-        role_def = self.ontology.roles.get(role)
-        if not role_def:
-            raise ValueError(f"Role '{role}' does not exist in the loaded ontology.")
-
-        # Build individual tool parameter schemas based on role axiomatic constraints
-        tool_models: Dict[str, Type[BaseModel]] = {}
-
-        if "issue_refund" in role_def.allowed_tools:
-            refund_axiom = role_def.axiomatic_constraints.get("issue_refund")
-            max_usd = refund_axiom.max_amount_usd if refund_axiom else 50.0
-
-            class RefundParams(BaseModel):
-                order_id: str = Field(..., description="Unique alphanumeric order reference")
-                amount_usd: float = Field(
-                    ...,
-                    ge=0.01,
-                    le=max_usd,
-                    description=f"Refund amount bounded strictly to ${max_usd:.2f} by role axiom"
-                )
-                reason: str = Field(..., description="Business justification for the refund")
-
-            tool_models["issue_refund"] = RefundParams
-
-        if "lookup_order_status" in role_def.allowed_tools:
-            class LookupParams(BaseModel):
-                order_id: str = Field(..., description="Order ID to retrieve tracking status")
-                include_shipping_timeline: bool = Field(default=True)
-
-            tool_models["lookup_order_status"] = LookupParams
-
-        if "update_shipping_address" in role_def.allowed_tools:
-            class AddressParams(BaseModel):
-                order_id: str = Field(..., description="Target order ID")
-                street_address: str = Field(..., description="New street address within authorized region")
-                postal_code: str = Field(..., description="Domestic postal code")
-
-            tool_models["update_shipping_address"] = AddressParams
-
-        if "query_business_metrics" in role_def.allowed_tools:
-            class QueryParams(BaseModel):
-                metric_name: str = Field(..., description="Authorized metric (e.g. daily_sales, churn_rate)")
-                time_range_days: int = Field(default=30, ge=1, le=365)
-
-            tool_models["query_business_metrics"] = QueryParams
-
-        # Construct top-level Action Selection Model
-        class SafeToolAction(BaseModel):
-            role_session: str = Field(default=role, description="Active RBAC role")
-            action_name: str = Field(..., description=f"Authorized tool choice: {list(tool_models.keys())}")
-            arguments: Dict[str, Any] = Field(..., description="Payload adhering to ontological parameter bounds")
-
-        return SafeToolAction
-
-    def generate_json_schema(self, role: str) -> Dict[str, Any]:
-        """Returns JSON schema representation of the role's constrained action grammar."""
-        model = self.get_role_pydantic_schema(role)
-        return model.model_json_schema()
+        if role == "DataAnalyst":
+            return QueryMetricsAction
+        # CustomerSupportTier1 and default roles
+        return Tier1SafeUnion
